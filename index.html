@@ -60,7 +60,7 @@
       left: 16px;
       z-index: 20;
       display: grid;
-      grid-template-columns: 360px 1fr 330px;
+      grid-template-columns: 360px 1fr 350px;
       gap: 12px;
       pointer-events: none;
     }
@@ -118,11 +118,12 @@
 
     .searchBox {
       display: grid;
-      grid-template-columns: 1fr 100px 100px;
+      grid-template-columns: 1fr 105px 115px;
       gap: 8px;
       padding: 10px;
       align-items: center;
       min-height: 64px;
+      position: relative;
     }
 
     .quickStats {
@@ -157,7 +158,7 @@
       right: 16px;
       bottom: 16px;
       z-index: 19;
-      width: 440px;
+      width: 450px;
       pointer-events: none;
     }
 
@@ -172,7 +173,7 @@
 
     .tabs {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       border-bottom: 1px solid var(--border);
       background: rgba(2, 6, 23, 0.55);
     }
@@ -248,6 +249,7 @@
     .green { color: var(--green); }
     .red { color: var(--red); }
     .yellow { color: var(--yellow); }
+    .orange { color: var(--orange); }
 
     label {
       display: block;
@@ -409,6 +411,22 @@
       margin-top: 10px;
     }
 
+    .progressWrap {
+      height: 10px;
+      background: rgba(2, 6, 23, 0.55);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+
+    .progressBar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #22c55e, #38bdf8);
+      transition: width 0.2s ease;
+    }
+
     .tableWrap {
       overflow: auto;
       max-height: 360px;
@@ -480,7 +498,7 @@
       left: 16px;
       top: 92px;
       z-index: 18;
-      max-width: 470px;
+      max-width: 500px;
       border-radius: 18px;
       padding: 12px 14px;
       color: var(--text);
@@ -531,12 +549,12 @@
       <div class="logo">SM</div>
       <div>
         <div class="brandTitle">ShelterMap</div>
-        <div class="brandSub">קו אווירי אל המקלט הקרוב ביותר</div>
+        <div class="brandSub">מקלט קרוב, קו אווירי וחיפוש ישובים</div>
       </div>
     </div>
 
     <div class="searchBox">
-      <input id="settlementSearch" placeholder="חפש ישוב / כתובת כמו CrimeMap..." onkeydown="handleSettlementEnter(event)" />
+      <input id="settlementSearch" placeholder="חפש ישוב / כתובת..." onkeydown="handleSettlementEnter(event)" />
       <button class="blueBtn" onclick="searchSettlement()">חפש</button>
       <button class="primary" onclick="searchSettlementAndFindShelter()">מצא מקלט</button>
     </div>
@@ -559,8 +577,9 @@
     <aside class="panel">
       <nav class="tabs">
         <button class="tab active" onclick="showTab('dashboard', this)">סקירה</button>
-        <button class="tab" onclick="showTab('layers', this)">חיפוש</button>
-        <button class="tab" onclick="showTab('data', this)">תוצאות</button>
+        <button class="tab" onclick="showTab('search', this)">חיפוש</button>
+        <button class="tab" onclick="showTab('results', this)">תוצאות</button>
+        <button class="tab" onclick="showTab('settings', this)">הגדרות</button>
       </nav>
 
       <div class="panelBody">
@@ -572,34 +591,20 @@
 
             <div class="row">
               <button class="greenBtn" onclick="showShelterLayer()">הצג שכבת מקלטים</button>
-              <button class="dangerBtn" onclick="stopMeasureMode()">עצור מדידה</button>
+              <button class="dangerBtn" onclick="cancelSearch()">בטל חיפוש</button>
+            </div>
+
+            <div class="row">
+              <button class="darkBtn" onclick="clearMapResult()">נקה קו ותוצאה</button>
+              <button class="darkBtn" onclick="stopMeasureMode()">עצור מדידה</button>
+            </div>
+
+            <div class="progressWrap">
+              <div class="progressBar" id="progressBar"></div>
             </div>
 
             <div class="muted" style="margin-top:10px;">
-              החיפוש החדש בודק קודם את המקומות שהכי סביר שיכילו את המקלט הקרוב, ומפסיק ברגע שאי אפשר למצוא מקלט קרוב יותר.
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="cardTitle">חיפוש ישובים מהיר</div>
-
-            <label for="settlementSearchPanel">שם ישוב / כתובת</label>
-            <input id="settlementSearchPanel" placeholder="לדוגמה: אשדוד, שדרות, תל אביב..." onkeydown="handlePanelSettlementEnter(event)" />
-
-            <div class="row">
-              <button class="blueBtn" onclick="searchSettlementFromPanel()">חפש וזום</button>
-              <button class="primary" onclick="searchPanelSettlementAndFindShelter()">מצא מקלט</button>
-            </div>
-
-            <div class="pillGrid">
-              <button class="pill" onclick="quickSettlement('אשדוד')">אשדוד</button>
-              <button class="pill" onclick="quickSettlement('תל אביב')">תל אביב</button>
-              <button class="pill" onclick="quickSettlement('ירושלים')">ירושלים</button>
-              <button class="pill" onclick="quickSettlement('חיפה')">חיפה</button>
-              <button class="pill" onclick="quickSettlement('באר שבע')">באר שבע</button>
-              <button class="pill" onclick="quickSettlement('שדרות')">שדרות</button>
-              <button class="pill" onclick="quickSettlement('קריית שמונה')">קריית שמונה</button>
-              <button class="pill" onclick="quickSettlement('אילת')">אילת</button>
+              החיפוש משתמש ב־Cache ובמרכזי חיפוש ממוינים לפי סיכוי למצוא מקלט קרוב. הוא עוצר כשאין סיכוי למצוא תוצאה טובה יותר.
             </div>
           </div>
 
@@ -631,47 +636,49 @@
                 <div class="statLabel">מצב מדידה</div>
                 <div class="statValue red" id="measureState">כבוי</div>
               </div>
+
+              <div class="statCard">
+                <div class="statLabel">Cache</div>
+                <div class="statValue orange" id="cacheSize">0</div>
+              </div>
+
+              <div class="statCard">
+                <div class="statLabel">חיפוש אחרון</div>
+                <div class="statValue blue" id="lastSearchName">—</div>
+              </div>
             </div>
           </div>
         </section>
 
-        <section id="tab-layers" class="hidden">
+        <section id="tab-search" class="hidden">
           <div class="card">
-            <div class="cardTitle">הגדרות שכבת מקלטים</div>
+            <div class="cardTitle">חיפוש ישוב / כתובת</div>
 
-            <label for="layerInput">שם שכבה</label>
-            <input id="layerInput" value="BOMBSHELTERS" />
-
-            <div class="pillGrid">
-              <button class="pill" onclick="setLayerName('BOMBSHELTERS')">BOMBSHELTERS</button>
-              <button class="pill" onclick="setLayerName('417')">417</button>
-            </div>
-
-            <label for="maxDistanceSelect">מרחק חיפוש מקסימלי</label>
-            <select id="maxDistanceSelect">
-              <option value="5000">5 ק״מ</option>
-              <option value="10000">10 ק״מ</option>
-              <option value="20000">20 ק״מ</option>
-              <option value="50000" selected>50 ק״מ</option>
-              <option value="100000">100 ק״מ</option>
-              <option value="200000">200 ק״מ</option>
-            </select>
-
-            <label for="gridQualitySelect">איכות חיפוש</label>
-            <select id="gridQualitySelect">
-              <option value="fast">מהיר</option>
-              <option value="balanced" selected>מאוזן</option>
-              <option value="accurate">מדויק יותר</option>
-            </select>
+            <label for="settlementSearchPanel">שם ישוב / כתובת</label>
+            <input id="settlementSearchPanel" placeholder="לדוגמה: אשדוד, שדרות, תל אביב..." onkeydown="handlePanelSettlementEnter(event)" />
 
             <div class="row">
-              <button class="greenBtn" onclick="showShelterLayer()">הצג שכבה</button>
-              <button class="darkBtn" onclick="hideShelterLayer()">הסתר שכבה</button>
+              <button class="blueBtn" onclick="searchSettlementFromPanel()">חפש וזום</button>
+              <button class="primary" onclick="searchPanelSettlementAndFindShelter()">מצא מקלט</button>
             </div>
 
-            <div class="warning">
-              אם החיפוש איטי מדי, הורד את הטווח ל־20 ק״מ או בחר מצב “מהיר”.
+            <div class="pillGrid">
+              <button class="pill" onclick="quickSettlement('אשדוד')">אשדוד</button>
+              <button class="pill" onclick="quickSettlement('תל אביב')">תל אביב</button>
+              <button class="pill" onclick="quickSettlement('ירושלים')">ירושלים</button>
+              <button class="pill" onclick="quickSettlement('חיפה')">חיפה</button>
+              <button class="pill" onclick="quickSettlement('באר שבע')">באר שבע</button>
+              <button class="pill" onclick="quickSettlement('שדרות')">שדרות</button>
+              <button class="pill" onclick="quickSettlement('קריית שמונה')">קריית שמונה</button>
+              <button class="pill" onclick="quickSettlement('אילת')">אילת</button>
+              <button class="pill" onclick="quickSettlement('נתיבות')">נתיבות</button>
+              <button class="pill" onclick="quickSettlement('אופקים')">אופקים</button>
             </div>
+          </div>
+
+          <div class="card">
+            <div class="cardTitle">חיפושים אחרונים</div>
+            <div class="pillGrid" id="recentSearchesBox"></div>
           </div>
 
           <div class="card">
@@ -699,24 +706,9 @@
               <button class="primary" onclick="findFromManualPoint()">מצא מקלט קרוב</button>
             </div>
           </div>
-
-          <div class="card">
-            <div class="cardTitle">רקע מפה</div>
-
-            <label for="backgroundSelect">מפת רקע</label>
-            <select id="backgroundSelect">
-              <option value="1" selected>תצלום אוויר</option>
-              <option value="0">רחובות</option>
-              <option value="2">משולב</option>
-              <option value="9">טופוגרפי</option>
-              <option value="11">ללא רקע</option>
-            </select>
-
-            <button class="darkBtn" onclick="changeBackground()">החלף רקע</button>
-          </div>
         </section>
 
-        <section id="tab-data" class="hidden">
+        <section id="tab-results" class="hidden">
           <div class="card">
             <div class="cardTitle">תוצאות אחרונות</div>
 
@@ -749,6 +741,78 @@
             <pre class="debugBox" id="debugBox">אין פלט עדיין.</pre>
           </div>
         </section>
+
+        <section id="tab-settings" class="hidden">
+          <div class="card">
+            <div class="cardTitle">הגדרות שכבת מקלטים</div>
+
+            <label for="layerInput">שם שכבה</label>
+            <input id="layerInput" value="BOMBSHELTERS" onchange="saveSettings()" />
+
+            <div class="pillGrid">
+              <button class="pill" onclick="setLayerName('BOMBSHELTERS')">BOMBSHELTERS</button>
+              <button class="pill" onclick="setLayerName('417')">417</button>
+            </div>
+
+            <label for="maxDistanceSelect">מרחק חיפוש מקסימלי</label>
+            <select id="maxDistanceSelect" onchange="saveSettings()">
+              <option value="5000">5 ק״מ</option>
+              <option value="10000">10 ק״מ</option>
+              <option value="20000">20 ק״מ</option>
+              <option value="50000" selected>50 ק״מ</option>
+              <option value="100000">100 ק״מ</option>
+              <option value="200000">200 ק״מ</option>
+            </select>
+
+            <label for="gridQualitySelect">איכות חיפוש</label>
+            <select id="gridQualitySelect" onchange="saveSettings()">
+              <option value="fast">מהיר</option>
+              <option value="balanced" selected>מאוזן</option>
+              <option value="accurate">מדויק יותר</option>
+            </select>
+
+            <label for="parallelSelect">בקשות במקביל</label>
+            <select id="parallelSelect" onchange="saveSettings()">
+              <option value="1">1 — הכי יציב</option>
+              <option value="2">2</option>
+              <option value="3" selected>3 — מומלץ</option>
+              <option value="4">4 — מהיר יותר</option>
+            </select>
+
+            <div class="row">
+              <button class="greenBtn" onclick="showShelterLayer()">הצג שכבה</button>
+              <button class="darkBtn" onclick="hideShelterLayer()">הסתר שכבה</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="cardTitle">רקע מפה</div>
+
+            <label for="backgroundSelect">מפת רקע</label>
+            <select id="backgroundSelect" onchange="saveSettings()">
+              <option value="1" selected>תצלום אוויר</option>
+              <option value="0">רחובות</option>
+              <option value="2">משולב</option>
+              <option value="9">טופוגרפי</option>
+              <option value="11">ללא רקע</option>
+            </select>
+
+            <button class="darkBtn" onclick="changeBackground()">החלף רקע</button>
+          </div>
+
+          <div class="card">
+            <div class="cardTitle">תחזוקה</div>
+
+            <div class="row">
+              <button class="darkBtn" onclick="clearSearchCache()">נקה Cache</button>
+              <button class="dangerBtn" onclick="resetSettings()">איפוס הגדרות</button>
+            </div>
+
+            <div class="warning">
+              אם GOVMAP מגיב לאט, הורד את “בקשות במקביל” ל־1 או 2.
+            </div>
+          </div>
+        </section>
       </div>
     </aside>
   </main>
@@ -757,6 +821,7 @@
     <button onclick="togglePanel()">☰</button>
     <button onclick="quickIsrael()">ישראל</button>
     <button onclick="startMeasureMode()">מדוד</button>
+    <button onclick="cancelSearch()">בטל</button>
   </div>
 
   <script>
@@ -764,8 +829,12 @@
 
     const DEFAULT_LAYER_NAME = "BOMBSHELTERS";
     const LAYER_FALLBACKS = ["BOMBSHELTERS", "417"];
-
     const GOVMAP_MAX_SAFE_RADIUS = 3000;
+
+    const SETTINGS_KEY = "sheltermap_settings_v2";
+    const RECENT_SEARCHES_KEY = "sheltermap_recent_searches_v1";
+
+    const searchCache = new Map();
 
     const state = {
       ready: false,
@@ -779,18 +848,24 @@
       lastLayerUsed: DEFAULT_LAYER_NAME,
       lastSettlementPoint: null,
       lastSettlementName: "",
-      requestsCounter: 0
+      requestsCounter: 0,
+      cacheHits: 0,
+      totalCenters: 0,
+      checkedCenters: 0
     };
 
     function initGovMap() {
+      loadSettings();
+      loadRecentSearches();
+
       try {
         govmap.createMap("map", {
           token: GOVMAP_TOKEN,
           center: { x: 176000, y: 657000 },
           level: 3,
-          background: "1",
-          layers: [DEFAULT_LAYER_NAME],
-          visibleLayers: [DEFAULT_LAYER_NAME],
+          background: document.getElementById("backgroundSelect").value || "1",
+          layers: [getLayerName()],
+          visibleLayers: [getLayerName()],
           showXY: true,
           identifyOnClick: false,
           layersMode: 2,
@@ -801,8 +876,9 @@
             state.ready = true;
             updateDashboard();
             renderResultsTable();
+            renderRecentSearches();
             setStatus("המפה נטענה. אפשר לחפש ישוב או ללחוץ על מדוד.");
-            print("GOVMAP loaded", { ready: true, layer: DEFAULT_LAYER_NAME });
+            print("GOVMAP loaded", { ready: true, layer: getLayerName() });
           },
 
           onError: function (error) {
@@ -823,7 +899,7 @@
 
       button.classList.add("active");
 
-      ["dashboard", "layers", "data"].forEach(function (name) {
+      ["dashboard", "search", "results", "settings"].forEach(function (name) {
         document.getElementById("tab-" + name).classList.add("hidden");
       });
 
@@ -849,6 +925,18 @@
       el.style.borderColor = isError
         ? "rgba(239, 68, 68, 0.55)"
         : "rgba(34, 197, 94, 0.45)";
+    }
+
+    function setProgress(done, total) {
+      const bar = document.getElementById("progressBar");
+
+      if (!total) {
+        bar.style.width = "0%";
+        return;
+      }
+
+      const percent = Math.max(0, Math.min(100, Math.round((done / total) * 100)));
+      bar.style.width = percent + "%";
     }
 
     function print(title, data) {
@@ -886,6 +974,47 @@
       }
     }
 
+    function loadSettings() {
+      try {
+        const raw = localStorage.getItem(SETTINGS_KEY);
+        if (!raw) return;
+
+        const settings = JSON.parse(raw);
+
+        if (settings.layerName) document.getElementById("layerInput").value = settings.layerName;
+        if (settings.maxDistance) document.getElementById("maxDistanceSelect").value = settings.maxDistance;
+        if (settings.quality) document.getElementById("gridQualitySelect").value = settings.quality;
+        if (settings.parallel) document.getElementById("parallelSelect").value = settings.parallel;
+        if (settings.background) document.getElementById("backgroundSelect").value = settings.background;
+      } catch (error) {
+        console.warn("Settings load failed", error);
+      }
+    }
+
+    function saveSettings() {
+      const settings = {
+        layerName: getLayerName(),
+        maxDistance: document.getElementById("maxDistanceSelect").value,
+        quality: document.getElementById("gridQualitySelect").value,
+        parallel: document.getElementById("parallelSelect").value,
+        background: document.getElementById("backgroundSelect").value
+      };
+
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      updateDashboard();
+    }
+
+    function resetSettings() {
+      localStorage.removeItem(SETTINGS_KEY);
+      document.getElementById("layerInput").value = DEFAULT_LAYER_NAME;
+      document.getElementById("maxDistanceSelect").value = "50000";
+      document.getElementById("gridQualitySelect").value = "balanced";
+      document.getElementById("parallelSelect").value = "3";
+      document.getElementById("backgroundSelect").value = "1";
+      saveSettings();
+      setStatus("ההגדרות אופסו.");
+    }
+
     function getLayerName() {
       return document.getElementById("layerInput").value.trim() || DEFAULT_LAYER_NAME;
     }
@@ -893,6 +1022,7 @@
     function setLayerName(name) {
       document.getElementById("layerInput").value = name;
       state.lastLayerUsed = name;
+      saveSettings();
       updateDashboard();
       setStatus("נבחרה שכבה: " + name);
     }
@@ -909,10 +1039,15 @@
     function getGridSpacing() {
       const quality = document.getElementById("gridQualitySelect").value;
 
-      if (quality === "fast") return 5200;
+      if (quality === "fast") return 5400;
       if (quality === "accurate") return 3400;
 
       return 4200;
+    }
+
+    function getParallelLimit() {
+      const value = Number(document.getElementById("parallelSelect").value);
+      return Number.isFinite(value) ? value : 3;
     }
 
     function showShelterLayer() {
@@ -971,7 +1106,7 @@
 
     async function quickSettlement(name) {
       syncSettlementInputs(name);
-      await searchSettlement();
+      await searchSettlementAndFindShelter();
     }
 
     async function searchSettlementFromPanel() {
@@ -1011,6 +1146,8 @@
         state.lastSettlementPoint = point;
         state.lastSettlementName = query;
 
+        addRecentSearch(query);
+
         document.getElementById("manualX").value = Math.round(point.x);
         document.getElementById("manualY").value = Math.round(point.y);
 
@@ -1021,6 +1158,7 @@
           marker: true
         });
 
+        updateDashboard();
         setStatus("נמצא מיקום עבור: " + query);
         print("Settlement search", { query, point, response });
 
@@ -1048,6 +1186,56 @@
       }
     }
 
+    function loadRecentSearches() {
+      renderRecentSearches();
+    }
+
+    function getRecentSearches() {
+      try {
+        return JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || "[]");
+      } catch {
+        return [];
+      }
+    }
+
+    function addRecentSearch(query) {
+      const cleaned = String(query || "").trim();
+      if (!cleaned) return;
+
+      const current = getRecentSearches()
+        .filter(function (x) {
+          return x !== cleaned;
+        });
+
+      current.unshift(cleaned);
+
+      localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(current.slice(0, 10)));
+      renderRecentSearches();
+    }
+
+    function renderRecentSearches() {
+      const box = document.getElementById("recentSearchesBox");
+      if (!box) return;
+
+      const recent = getRecentSearches();
+      box.innerHTML = "";
+
+      if (!recent.length) {
+        box.innerHTML = "<span class='muted'>אין חיפושים אחרונים עדיין.</span>";
+        return;
+      }
+
+      recent.forEach(function (query) {
+        const btn = document.createElement("button");
+        btn.className = "pill";
+        btn.textContent = query;
+        btn.onclick = function () {
+          quickSettlement(query);
+        };
+        box.appendChild(btn);
+      });
+    }
+
     function startMeasureMode() {
       if (!requireReady()) return;
 
@@ -1063,10 +1251,19 @@
     function stopMeasureMode() {
       state.measuring = false;
       state.measureRequestId += 1;
-      state.searchToken += 1;
       updateDashboard();
       resetGovMapTool();
       setStatus("מצב המדידה נעצר.");
+    }
+
+    function cancelSearch() {
+      state.searchToken += 1;
+      state.measuring = false;
+      state.measureRequestId += 1;
+      setProgress(0, 1);
+      updateDashboard();
+      resetGovMapTool();
+      setStatus("החיפוש בוטל.");
     }
 
     function waitForMapClick(requestId) {
@@ -1129,6 +1326,9 @@
 
       state.lastClickedPoint = clicked;
       state.requestsCounter = 0;
+      state.cacheHits = 0;
+      state.checkedCenters = 0;
+      state.totalCenters = 0;
       state.searchToken += 1;
 
       const myToken = state.searchToken;
@@ -1136,7 +1336,8 @@
       document.getElementById("manualX").value = Math.round(clicked.x);
       document.getElementById("manualY").value = Math.round(clicked.y);
 
-      setStatus("מחפש מקלט קרוב בשיטה יעילה...");
+      setProgress(0, 1);
+      setStatus("מחפש מקלט קרוב...");
 
       try {
         const searchResult = await findNearestShelterOptimized(clicked, myToken);
@@ -1176,7 +1377,9 @@
           layerName: searchResult.layerName,
           effectiveSearchRadius: searchResult.radius,
           requestsSent: state.requestsCounter,
-          searchedCenters: searchResult.searchedCenters,
+          cacheHits: state.cacheHits,
+          checkedCenters: searchResult.checkedCenters,
+          totalCenters: searchResult.totalCenters,
           nearest: searchResult.nearest,
           candidatesCount: searchResult.candidates.length,
           rawResponse: searchResult.rawResponse
@@ -1184,7 +1387,9 @@
 
         setStatus(
           "נמצא המקלט הקרוב וצויר קו אליו. בקשות: " +
-          state.requestsCounter
+          state.requestsCounter +
+          " | Cache: " +
+          state.cacheHits
         );
 
         resetGovMapTool();
@@ -1222,23 +1427,22 @@
       const layerOrder = getLayerOrder();
       const maxDistance = getMaxDistance();
       const centers = buildOptimizedSearchCenters(clicked, maxDistance);
+      const parallelLimit = getParallelLimit();
+
+      state.totalCenters = centers.length;
+      state.checkedCenters = 0;
 
       let allCandidates = [];
       let bestLayerName = getLayerName();
       let lastRawResponse = null;
-      let searchedCenters = 0;
+      let cursor = 0;
 
-      for (let i = 0; i < centers.length; i++) {
-        if (token !== state.searchToken) {
-          return null;
-        }
-
-        const center = centers[i];
+      while (cursor < centers.length) {
+        if (token !== state.searchToken) return null;
 
         const currentBest = getBestCandidate(allCandidates);
-        const nextLowerBound = center.lowerBound;
 
-        if (currentBest && currentBest.distanceMeters <= nextLowerBound) {
+        if (currentBest && currentBest.distanceMeters <= centers[cursor].lowerBound) {
           const finalCandidates = sortCandidates(dedupeCandidates(allCandidates));
 
           return {
@@ -1247,40 +1451,54 @@
             nearest: currentBest,
             candidates: finalCandidates,
             rawResponse: lastRawResponse,
-            searchedCenters
+            checkedCenters: state.checkedCenters,
+            totalCenters: centers.length
           };
         }
 
+        const batch = centers.slice(cursor, cursor + parallelLimit);
+        cursor += parallelLimit;
+
         setStatus(
-          "מחפש... מרכז " +
-          (i + 1) +
+          "מחפש מקלט... " +
+          Math.min(cursor, centers.length) +
           "/" +
           centers.length +
-          " | מינימום אפשרי: " +
-          formatDistance(center.lowerBound)
+          " | הכי קרוב אפשרי: " +
+          formatDistance(batch[0].lowerBound)
         );
 
-        searchedCenters += 1;
+        setProgress(Math.min(cursor, centers.length), centers.length);
 
-        for (const layerName of layerOrder) {
-          const result = await queryIntersectFeatures(layerName, center, GOVMAP_MAX_SAFE_RADIUS);
-          lastRawResponse = result.rawResponse;
+        const batchResults = await Promise.all(
+          batch.map(function (center) {
+            return queryAllLayersForCenter(layerOrder, center);
+          })
+        );
 
-          if (result.candidates.length) {
-            result.candidates.forEach(function (candidate) {
-              candidate.distanceMeters = distanceMeters(clicked, candidate);
-              candidate.searchCenter = {
-                x: center.x,
-                y: center.y,
-                lowerBound: center.lowerBound,
-                distanceFromClickedToCenter: center.distanceFromClicked
-              };
-            });
+        state.checkedCenters += batch.length;
 
-            allCandidates = allCandidates.concat(result.candidates);
-            bestLayerName = layerName;
+        batchResults.forEach(function (centerResult) {
+          lastRawResponse = centerResult.rawResponse || lastRawResponse;
+
+          if (centerResult.layerName) {
+            bestLayerName = centerResult.layerName;
           }
-        }
+
+          centerResult.candidates.forEach(function (candidate) {
+            candidate.distanceMeters = distanceMeters(clicked, candidate);
+            candidate.searchCenter = {
+              x: centerResult.center.x,
+              y: centerResult.center.y,
+              lowerBound: centerResult.center.lowerBound,
+              distanceFromClickedToCenter: centerResult.center.distanceFromClicked
+            };
+          });
+
+          allCandidates = allCandidates.concat(centerResult.candidates);
+        });
+
+        updateDashboard();
       }
 
       const finalCandidates = sortCandidates(dedupeCandidates(allCandidates));
@@ -1292,7 +1510,8 @@
           nearest: finalCandidates[0],
           candidates: finalCandidates,
           rawResponse: lastRawResponse,
-          searchedCenters
+          checkedCenters: state.checkedCenters,
+          totalCenters: centers.length
         };
       }
 
@@ -1300,7 +1519,32 @@
         nearest: null,
         candidates: [],
         rawResponse: lastRawResponse,
-        searchedCenters
+        checkedCenters: state.checkedCenters,
+        totalCenters: centers.length
+      };
+    }
+
+    async function queryAllLayersForCenter(layerOrder, center) {
+      let all = [];
+      let lastRawResponse = null;
+      let usedLayer = "";
+
+      for (const layerName of layerOrder) {
+        const result = await queryIntersectFeaturesCached(layerName, center, GOVMAP_MAX_SAFE_RADIUS);
+
+        lastRawResponse = result.rawResponse || lastRawResponse;
+
+        if (result.candidates.length) {
+          usedLayer = layerName;
+          all = all.concat(result.candidates);
+        }
+      }
+
+      return {
+        center,
+        layerName: usedLayer,
+        candidates: all,
+        rawResponse: lastRawResponse
       };
     }
 
@@ -1319,7 +1563,7 @@
 
         if (lowerBound > maxDistance) return;
 
-        const key = Math.round(x / 10) + "," + Math.round(y / 10);
+        const key = Math.round(x / 50) + "," + Math.round(y / 50);
 
         if (seen.has(key)) return;
 
@@ -1389,6 +1633,32 @@
         seen.add(key);
         return true;
       });
+    }
+
+    async function queryIntersectFeaturesCached(layerName, center, radius) {
+      const key = buildCacheKey(layerName, center, radius);
+
+      if (searchCache.has(key)) {
+        state.cacheHits += 1;
+        return searchCache.get(key);
+      }
+
+      const result = await queryIntersectFeatures(layerName, center, radius);
+      searchCache.set(key, result);
+
+      if (searchCache.size > 700) {
+        const firstKey = searchCache.keys().next().value;
+        searchCache.delete(firstKey);
+      }
+
+      return result;
+    }
+
+    function buildCacheKey(layerName, center, radius) {
+      const gridX = Math.round(center.x / 250) * 250;
+      const gridY = Math.round(center.y / 250) * 250;
+
+      return [layerName, gridX, gridY, radius].join("|");
     }
 
     async function queryIntersectFeatures(layerName, center, radius) {
@@ -1963,6 +2233,29 @@
       await drawLineToShelter(clicked, nearest);
     }
 
+    function clearMapResult() {
+      state.lastNearest = null;
+      state.lastCandidates = [];
+      state.lastRadius = null;
+
+      document.getElementById("nearestResult").textContent = "עדיין לא נבחרה נקודה.";
+      renderResultsTable();
+      updateDashboard();
+      setProgress(0, 1);
+
+      if (window.govmap && typeof govmap.displayGeometries === "function") {
+        govmap.displayGeometries({
+          wkts: [],
+          names: [],
+          geometryType: govmap.geometryType.POLYLINE,
+          clearExisting: true,
+          data: {}
+        }).catch(function () {});
+      }
+
+      setStatus("התוצאה נוקתה.");
+    }
+
     function drawClickedPoint(clicked, shouldClear) {
       return toPromise(govmap.displayGeometries({
         circleGeometries: [
@@ -2091,6 +2384,11 @@
 
       document.getElementById("topRequestsCount").textContent =
         state.requestsCounter || 0;
+
+      document.getElementById("cacheSize").textContent = searchCache.size;
+
+      document.getElementById("lastSearchName").textContent =
+        state.lastSettlementName ? state.lastSettlementName : "—";
     }
 
     function renderResultsTable() {
@@ -2137,17 +2435,6 @@
       });
     }
 
-    function focusFirstResult() {
-      const rows = state.lastCandidates || [];
-
-      if (!rows.length) {
-        setStatus("אין תוצאות אחרונות לחיפוש.", true);
-        return;
-      }
-
-      zoomToResult(0);
-    }
-
     function zoomToResult(index) {
       if (!requireReady()) return;
 
@@ -2175,6 +2462,7 @@
 
       try {
         govmap.setBackground(bg);
+        saveSettings();
         setStatus("רקע המפה הוחלף.");
       } catch (error) {
         setStatus("לא הצלחתי להחליף רקע.", true);
@@ -2215,6 +2503,13 @@
       });
 
       setStatus("תצוגת כל ישראל.");
+    }
+
+    function clearSearchCache() {
+      searchCache.clear();
+      state.cacheHits = 0;
+      updateDashboard();
+      setStatus("ה־Cache נוקה.");
     }
 
     function resetGovMapTool() {
