@@ -25,6 +25,7 @@
       --green: #22c55e;
       --red: #ef4444;
       --yellow: #facc15;
+      --orange: #fb923c;
       --shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
       --radius: 18px;
     }
@@ -59,7 +60,7 @@
       left: 16px;
       z-index: 20;
       display: grid;
-      grid-template-columns: 380px 1fr 330px;
+      grid-template-columns: 360px 1fr 330px;
       gap: 12px;
       pointer-events: none;
     }
@@ -117,7 +118,7 @@
 
     .searchBox {
       display: grid;
-      grid-template-columns: 1fr 120px;
+      grid-template-columns: 1fr 100px 100px;
       gap: 8px;
       padding: 10px;
       align-items: center;
@@ -156,7 +157,7 @@
       right: 16px;
       bottom: 16px;
       z-index: 19;
-      width: 430px;
+      width: 440px;
       pointer-events: none;
     }
 
@@ -276,6 +277,13 @@
       font-size: 14px;
     }
 
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
+    }
+
     textarea {
       min-height: 220px;
       direction: ltr;
@@ -361,6 +369,11 @@
       border: 1px solid var(--border);
       color: var(--muted);
       font-size: 12px;
+    }
+
+    .pill:hover {
+      color: white;
+      border-color: rgba(56, 189, 248, 0.5);
     }
 
     .result {
@@ -467,7 +480,7 @@
       left: 16px;
       top: 92px;
       z-index: 18;
-      max-width: 440px;
+      max-width: 470px;
       border-radius: 18px;
       padding: 12px 14px;
       color: var(--text);
@@ -523,14 +536,15 @@
     </div>
 
     <div class="searchBox">
-      <input id="mainSearch" placeholder="חפש בתוצאות האחרונות..." oninput="renderResultsTable()" />
-      <button class="primary" onclick="focusFirstResult()">חפש</button>
+      <input id="settlementSearch" placeholder="חפש ישוב / כתובת כמו CrimeMap..." onkeydown="handleSettlementEnter(event)" />
+      <button class="blueBtn" onclick="searchSettlement()">חפש</button>
+      <button class="primary" onclick="searchSettlementAndFindShelter()">מצא מקלט</button>
     </div>
 
     <div class="quickStats">
       <div class="miniStat">
-        <div class="miniStatLabel">תוצאות אחרונות</div>
-        <div class="miniStatValue" id="topResultsCount">0</div>
+        <div class="miniStatLabel">בקשות חיפוש</div>
+        <div class="miniStatValue" id="topRequestsCount">0</div>
       </div>
       <div class="miniStat">
         <div class="miniStatLabel">מרחק אחרון</div>
@@ -545,7 +559,7 @@
     <aside class="panel">
       <nav class="tabs">
         <button class="tab active" onclick="showTab('dashboard', this)">סקירה</button>
-        <button class="tab" onclick="showTab('layers', this)">שכבה</button>
+        <button class="tab" onclick="showTab('layers', this)">חיפוש</button>
         <button class="tab" onclick="showTab('data', this)">תוצאות</button>
       </nav>
 
@@ -562,7 +576,30 @@
             </div>
 
             <div class="muted" style="margin-top:10px;">
-              במקום לשלוח ל־GOVMAP רדיוס ענק, האתר מחפש בטבעות של 3 ק״מ ומחשב לבד את המקלט הקרוב באמת.
+              החיפוש החדש בודק קודם את המקומות שהכי סביר שיכילו את המקלט הקרוב, ומפסיק ברגע שאי אפשר למצוא מקלט קרוב יותר.
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="cardTitle">חיפוש ישובים מהיר</div>
+
+            <label for="settlementSearchPanel">שם ישוב / כתובת</label>
+            <input id="settlementSearchPanel" placeholder="לדוגמה: אשדוד, שדרות, תל אביב..." onkeydown="handlePanelSettlementEnter(event)" />
+
+            <div class="row">
+              <button class="blueBtn" onclick="searchSettlementFromPanel()">חפש וזום</button>
+              <button class="primary" onclick="searchPanelSettlementAndFindShelter()">מצא מקלט</button>
+            </div>
+
+            <div class="pillGrid">
+              <button class="pill" onclick="quickSettlement('אשדוד')">אשדוד</button>
+              <button class="pill" onclick="quickSettlement('תל אביב')">תל אביב</button>
+              <button class="pill" onclick="quickSettlement('ירושלים')">ירושלים</button>
+              <button class="pill" onclick="quickSettlement('חיפה')">חיפה</button>
+              <button class="pill" onclick="quickSettlement('באר שבע')">באר שבע</button>
+              <button class="pill" onclick="quickSettlement('שדרות')">שדרות</button>
+              <button class="pill" onclick="quickSettlement('קריית שמונה')">קריית שמונה</button>
+              <button class="pill" onclick="quickSettlement('אילת')">אילת</button>
             </div>
           </div>
 
@@ -581,7 +618,7 @@
               </div>
 
               <div class="statCard">
-                <div class="statLabel">טבעת שבה נמצא</div>
+                <div class="statLabel">טווח שבו נמצא</div>
                 <div class="statValue yellow" id="lastRadius">—</div>
               </div>
 
@@ -612,12 +649,19 @@
 
             <label for="maxDistanceSelect">מרחק חיפוש מקסימלי</label>
             <select id="maxDistanceSelect">
+              <option value="5000">5 ק״מ</option>
               <option value="10000">10 ק״מ</option>
               <option value="20000">20 ק״מ</option>
               <option value="50000" selected>50 ק״מ</option>
               <option value="100000">100 ק״מ</option>
               <option value="200000">200 ק״מ</option>
-              <option value="500000">500 ק״מ</option>
+            </select>
+
+            <label for="gridQualitySelect">איכות חיפוש</label>
+            <select id="gridQualitySelect">
+              <option value="fast">מהיר</option>
+              <option value="balanced" selected>מאוזן</option>
+              <option value="accurate">מדויק יותר</option>
             </select>
 
             <div class="row">
@@ -625,16 +669,9 @@
               <button class="darkBtn" onclick="hideShelterLayer()">הסתר שכבה</button>
             </div>
 
-            <label for="backgroundSelect">מפת רקע</label>
-            <select id="backgroundSelect">
-              <option value="1" selected>תצלום אוויר</option>
-              <option value="0">רחובות</option>
-              <option value="2">משולב</option>
-              <option value="9">טופוגרפי</option>
-              <option value="11">ללא רקע</option>
-            </select>
-
-            <button class="darkBtn" onclick="changeBackground()">החלף רקע</button>
+            <div class="warning">
+              אם החיפוש איטי מדי, הורד את הטווח ל־20 ק״מ או בחר מצב “מהיר”.
+            </div>
           </div>
 
           <div class="card">
@@ -662,13 +699,31 @@
               <button class="primary" onclick="findFromManualPoint()">מצא מקלט קרוב</button>
             </div>
           </div>
+
+          <div class="card">
+            <div class="cardTitle">רקע מפה</div>
+
+            <label for="backgroundSelect">מפת רקע</label>
+            <select id="backgroundSelect">
+              <option value="1" selected>תצלום אוויר</option>
+              <option value="0">רחובות</option>
+              <option value="2">משולב</option>
+              <option value="9">טופוגרפי</option>
+              <option value="11">ללא רקע</option>
+            </select>
+
+            <button class="darkBtn" onclick="changeBackground()">החלף רקע</button>
+          </div>
         </section>
 
         <section id="tab-data" class="hidden">
           <div class="card">
             <div class="cardTitle">תוצאות אחרונות</div>
 
-            <div class="tableWrap">
+            <label for="resultsSearch">חיפוש בתוצאות</label>
+            <input id="resultsSearch" placeholder="חפש לפי שם / מזהה..." oninput="renderResultsTable()" />
+
+            <div class="tableWrap" style="margin-top:10px;">
               <table>
                 <thead>
                   <tr>
@@ -712,33 +767,18 @@
 
     const GOVMAP_MAX_SAFE_RADIUS = 3000;
 
-    const RING_RADII = [
-      0,
-      2500,
-      5000,
-      7500,
-      10000,
-      15000,
-      20000,
-      30000,
-      50000,
-      75000,
-      100000,
-      150000,
-      200000,
-      300000,
-      500000
-    ];
-
     const state = {
       ready: false,
       measuring: false,
+      searchToken: 0,
       measureRequestId: 0,
       lastClickedPoint: null,
       lastNearest: null,
       lastCandidates: [],
       lastRadius: null,
       lastLayerUsed: DEFAULT_LAYER_NAME,
+      lastSettlementPoint: null,
+      lastSettlementName: "",
       requestsCounter: 0
     };
 
@@ -760,7 +800,8 @@
           onLoad: function () {
             state.ready = true;
             updateDashboard();
-            setStatus("המפה נטענה. לחץ על מדוד ואז בחר נקודה במפה.");
+            renderResultsTable();
+            setStatus("המפה נטענה. אפשר לחפש ישוב או ללחוץ על מדוד.");
             print("GOVMAP loaded", { ready: true, layer: DEFAULT_LAYER_NAME });
           },
 
@@ -856,17 +897,22 @@
       setStatus("נבחרה שכבה: " + name);
     }
 
+    function getLayerOrder() {
+      return Array.from(new Set([getLayerName()].concat(LAYER_FALLBACKS).filter(Boolean)));
+    }
+
     function getMaxDistance() {
       const value = Number(document.getElementById("maxDistanceSelect").value);
       return Number.isFinite(value) ? value : 50000;
     }
 
-    function unique(arr) {
-      return Array.from(new Set(arr.filter(Boolean)));
-    }
+    function getGridSpacing() {
+      const quality = document.getElementById("gridQualitySelect").value;
 
-    function getLayerOrder() {
-      return unique([getLayerName()].concat(LAYER_FALLBACKS));
+      if (quality === "fast") return 5200;
+      if (quality === "accurate") return 3400;
+
+      return 4200;
     }
 
     function showShelterLayer() {
@@ -899,6 +945,109 @@
       }
     }
 
+    function handleSettlementEnter(event) {
+      if (event.key === "Enter") {
+        searchSettlement();
+      }
+    }
+
+    function handlePanelSettlementEnter(event) {
+      if (event.key === "Enter") {
+        searchSettlementFromPanel();
+      }
+    }
+
+    function getSettlementSearchText() {
+      const topValue = document.getElementById("settlementSearch").value.trim();
+      const panelValue = document.getElementById("settlementSearchPanel").value.trim();
+
+      return topValue || panelValue;
+    }
+
+    function syncSettlementInputs(value) {
+      document.getElementById("settlementSearch").value = value;
+      document.getElementById("settlementSearchPanel").value = value;
+    }
+
+    async function quickSettlement(name) {
+      syncSettlementInputs(name);
+      await searchSettlement();
+    }
+
+    async function searchSettlementFromPanel() {
+      const value = document.getElementById("settlementSearchPanel").value.trim();
+      syncSettlementInputs(value);
+      return searchSettlement();
+    }
+
+    async function searchSettlement() {
+      if (!requireReady()) return null;
+
+      const query = getSettlementSearchText();
+
+      if (!query) {
+        setStatus("כתוב שם ישוב או כתובת לחיפוש.", true);
+        return null;
+      }
+
+      setStatus("מחפש ישוב / כתובת: " + query + "...");
+
+      try {
+        const params = { keyword: query };
+
+        if (govmap.geocodeType && govmap.geocodeType.FullResult !== undefined) {
+          params.type = govmap.geocodeType.FullResult;
+        }
+
+        const response = await toPromise(govmap.geocode(params));
+        const point = extractAnyIsraelPoint(response);
+
+        if (!point) {
+          setStatus("לא מצאתי קואורדינטות בתוצאת החיפוש.", true);
+          print("Geocode response without point", response);
+          return null;
+        }
+
+        state.lastSettlementPoint = point;
+        state.lastSettlementName = query;
+
+        document.getElementById("manualX").value = Math.round(point.x);
+        document.getElementById("manualY").value = Math.round(point.y);
+
+        govmap.zoomToXY({
+          x: point.x,
+          y: point.y,
+          level: 8,
+          marker: true
+        });
+
+        setStatus("נמצא מיקום עבור: " + query);
+        print("Settlement search", { query, point, response });
+
+        return point;
+      } catch (error) {
+        setStatus("שגיאה בחיפוש ישוב / כתובת.", true);
+        print("Geocode error", normalizeError(error));
+        return null;
+      }
+    }
+
+    async function searchSettlementAndFindShelter() {
+      const point = await searchSettlement();
+
+      if (point) {
+        await runNearestSearchFromPoint(point);
+      }
+    }
+
+    async function searchPanelSettlementAndFindShelter() {
+      const point = await searchSettlementFromPanel();
+
+      if (point) {
+        await runNearestSearchFromPoint(point);
+      }
+    }
+
     function startMeasureMode() {
       if (!requireReady()) return;
 
@@ -914,6 +1063,7 @@
     function stopMeasureMode() {
       state.measuring = false;
       state.measureRequestId += 1;
+      state.searchToken += 1;
       updateDashboard();
       resetGovMapTool();
       setStatus("מצב המדידה נעצר.");
@@ -963,28 +1113,41 @@
         return;
       }
 
+      await runNearestSearchFromPoint(point);
+    }
+
+    async function runNearestSearchFromPoint(point) {
+      if (!requireReady()) return;
+
       const clicked = { x: Number(point.x), y: Number(point.y) };
 
       if (!isValidIsraelGridPoint(clicked)) {
-        setStatus("נקודת הלחיצה לא נראית כמו קואורדינטות ישראליות תקינות.", true);
-        print("Invalid clicked point", { clicked, response });
+        setStatus("הנקודה לא נראית כמו קואורדינטות ישראליות תקינות.", true);
+        print("Invalid point", clicked);
         return;
       }
 
       state.lastClickedPoint = clicked;
       state.requestsCounter = 0;
+      state.searchToken += 1;
+
+      const myToken = state.searchToken;
 
       document.getElementById("manualX").value = Math.round(clicked.x);
       document.getElementById("manualY").value = Math.round(clicked.y);
 
-      setStatus("מחפש מקלט קרוב בטבעות של 3 ק״מ...");
+      setStatus("מחפש מקלט קרוב בשיטה יעילה...");
 
       try {
-        const searchResult = await findNearestShelter(clicked);
+        const searchResult = await findNearestShelterOptimized(clicked, myToken);
+
+        if (myToken !== state.searchToken) return;
 
         if (!searchResult || !searchResult.nearest) {
           state.lastNearest = null;
           state.lastCandidates = [];
+          state.lastRadius = null;
+
           updateDashboard();
           renderResultsTable();
 
@@ -1008,17 +1171,22 @@
 
         await drawResult(clicked, searchResult.nearest);
 
-        print("Nearest shelter result", {
+        print("Nearest shelter optimized result", {
           clicked,
           layerName: searchResult.layerName,
-          searchRadius: searchResult.radius,
+          effectiveSearchRadius: searchResult.radius,
           requestsSent: state.requestsCounter,
+          searchedCenters: searchResult.searchedCenters,
           nearest: searchResult.nearest,
           candidatesCount: searchResult.candidates.length,
           rawResponse: searchResult.rawResponse
         });
 
-        setStatus("נמצא המקלט הקרוב וצויר קו אליו.");
+        setStatus(
+          "נמצא המקלט הקרוב וצויר קו אליו. בקשות: " +
+          state.requestsCounter
+        );
+
         resetGovMapTool();
 
         if (state.measuring) {
@@ -1028,6 +1196,8 @@
           }, 350);
         }
       } catch (error) {
+        if (myToken !== state.searchToken) return;
+
         setStatus("שגיאה בחיפוש מקלטים.", true);
         print("Nearest shelter search error", normalizeError(error));
         resetGovMapTool();
@@ -1045,98 +1215,158 @@
         return;
       }
 
-      await handleClickedPointResponse({ mapPoint: { x, y } });
+      await runNearestSearchFromPoint({ x, y });
     }
 
-    async function findNearestShelter(clicked) {
+    async function findNearestShelterOptimized(clicked, token) {
       const layerOrder = getLayerOrder();
       const maxDistance = getMaxDistance();
-      const ringGroups = buildSearchRingGroups(clicked, maxDistance);
+      const centers = buildOptimizedSearchCenters(clicked, maxDistance);
 
       let allCandidates = [];
-      let lastRawResponse = null;
       let bestLayerName = getLayerName();
+      let lastRawResponse = null;
+      let searchedCenters = 0;
 
-      for (let ringIndex = 0; ringIndex < ringGroups.length; ringIndex++) {
-        const group = ringGroups[ringIndex];
-
-        setStatus(
-          "מחפש בטבעת " +
-          formatDistance(group.ringRadius) +
-          " / עד " +
-          formatDistance(maxDistance) +
-          "..."
-        );
-
-        for (const center of group.centers) {
-          for (const layerName of layerOrder) {
-            const result = await queryIntersectFeatures(layerName, center, GOVMAP_MAX_SAFE_RADIUS);
-            lastRawResponse = result.rawResponse;
-
-            if (result.candidates.length) {
-              result.candidates.forEach(function (candidate) {
-                candidate.distanceMeters = distanceMeters(clicked, candidate);
-                candidate.searchCenter = {
-                  x: center.x,
-                  y: center.y,
-                  ringRadius: group.ringRadius
-                };
-              });
-
-              allCandidates = allCandidates.concat(result.candidates);
-              bestLayerName = layerName;
-            }
-          }
+      for (let i = 0; i < centers.length; i++) {
+        if (token !== state.searchToken) {
+          return null;
         }
 
-        let sorted = dedupeCandidates(allCandidates)
-          .filter(function (candidate) {
-            return (
-              isValidIsraelGridPoint(candidate) &&
-              Number.isFinite(candidate.distanceMeters)
-            );
-          })
-          .sort(function (a, b) {
-            return a.distanceMeters - b.distanceMeters;
-          });
+        const center = centers[i];
 
-        if (sorted.length) {
-          const nearest = sorted[0];
+        const currentBest = getBestCandidate(allCandidates);
+        const nextLowerBound = center.lowerBound;
 
-          /*
-            אם כבר חיפשנו בטבעת רחוקה, וכל טבעת עתידית לא יכולה להכיל משהו קרוב יותר
-            מהמקלט שכבר מצאנו, אפשר לעצור.
-          */
-          const nextRing = ringGroups[ringIndex + 1];
+        if (currentBest && currentBest.distanceMeters <= nextLowerBound) {
+          const finalCandidates = sortCandidates(dedupeCandidates(allCandidates));
 
-          if (!nextRing || nearest.distanceMeters <= Math.max(0, nextRing.ringRadius - GOVMAP_MAX_SAFE_RADIUS)) {
-            return {
-              layerName: bestLayerName,
-              radius: Math.max(group.ringRadius, nearest.distanceMeters),
-              nearest,
-              candidates: sorted,
-              rawResponse: lastRawResponse
-            };
-          }
+          return {
+            layerName: bestLayerName,
+            radius: currentBest.distanceMeters,
+            nearest: currentBest,
+            candidates: finalCandidates,
+            rawResponse: lastRawResponse,
+            searchedCenters
+          };
+        }
 
-          /*
-            אם מצאנו מקלט בתוך החיפוש המרכזי של 3 ק״מ, הוא בהכרח הקרוב ביותר.
-          */
-          if (group.ringRadius === 0 && nearest.distanceMeters <= GOVMAP_MAX_SAFE_RADIUS) {
-            return {
-              layerName: bestLayerName,
-              radius: GOVMAP_MAX_SAFE_RADIUS,
-              nearest,
-              candidates: sorted,
-              rawResponse: lastRawResponse
-            };
+        setStatus(
+          "מחפש... מרכז " +
+          (i + 1) +
+          "/" +
+          centers.length +
+          " | מינימום אפשרי: " +
+          formatDistance(center.lowerBound)
+        );
+
+        searchedCenters += 1;
+
+        for (const layerName of layerOrder) {
+          const result = await queryIntersectFeatures(layerName, center, GOVMAP_MAX_SAFE_RADIUS);
+          lastRawResponse = result.rawResponse;
+
+          if (result.candidates.length) {
+            result.candidates.forEach(function (candidate) {
+              candidate.distanceMeters = distanceMeters(clicked, candidate);
+              candidate.searchCenter = {
+                x: center.x,
+                y: center.y,
+                lowerBound: center.lowerBound,
+                distanceFromClickedToCenter: center.distanceFromClicked
+              };
+            });
+
+            allCandidates = allCandidates.concat(result.candidates);
+            bestLayerName = layerName;
           }
         }
       }
 
-      const finalSorted = dedupeCandidates(allCandidates)
+      const finalCandidates = sortCandidates(dedupeCandidates(allCandidates));
+
+      if (finalCandidates.length) {
+        return {
+          layerName: bestLayerName,
+          radius: finalCandidates[0].distanceMeters,
+          nearest: finalCandidates[0],
+          candidates: finalCandidates,
+          rawResponse: lastRawResponse,
+          searchedCenters
+        };
+      }
+
+      return {
+        nearest: null,
+        candidates: [],
+        rawResponse: lastRawResponse,
+        searchedCenters
+      };
+    }
+
+    function buildOptimizedSearchCenters(clicked, maxDistance) {
+      const spacing = getGridSpacing();
+      const centers = [];
+      const seen = new Set();
+
+      function addCenter(x, y) {
+        const point = { x, y };
+
+        if (!isValidIsraelGridPoint(point)) return;
+
+        const d = distanceMeters(clicked, point);
+        const lowerBound = Math.max(0, d - GOVMAP_MAX_SAFE_RADIUS);
+
+        if (lowerBound > maxDistance) return;
+
+        const key = Math.round(x / 10) + "," + Math.round(y / 10);
+
+        if (seen.has(key)) return;
+
+        seen.add(key);
+
+        centers.push({
+          x,
+          y,
+          distanceFromClicked: d,
+          lowerBound
+        });
+      }
+
+      addCenter(clicked.x, clicked.y);
+
+      const limit = maxDistance + GOVMAP_MAX_SAFE_RADIUS;
+      const steps = Math.ceil(limit / spacing);
+
+      for (let ix = -steps; ix <= steps; ix++) {
+        for (let iy = -steps; iy <= steps; iy++) {
+          if (ix === 0 && iy === 0) continue;
+
+          addCenter(
+            clicked.x + ix * spacing,
+            clicked.y + iy * spacing
+          );
+        }
+      }
+
+      centers.sort(function (a, b) {
+        return a.lowerBound - b.lowerBound ||
+               a.distanceFromClicked - b.distanceFromClicked;
+      });
+
+      return centers;
+    }
+
+    function getBestCandidate(candidates) {
+      const sorted = sortCandidates(dedupeCandidates(candidates));
+      return sorted.length ? sorted[0] : null;
+    }
+
+    function sortCandidates(candidates) {
+      return candidates
         .filter(function (candidate) {
           return (
+            candidate &&
             isValidIsraelGridPoint(candidate) &&
             Number.isFinite(candidate.distanceMeters)
           );
@@ -1144,80 +1374,6 @@
         .sort(function (a, b) {
           return a.distanceMeters - b.distanceMeters;
         });
-
-      if (finalSorted.length) {
-        return {
-          layerName: bestLayerName,
-          radius: finalSorted[0].distanceMeters,
-          nearest: finalSorted[0],
-          candidates: finalSorted,
-          rawResponse: lastRawResponse
-        };
-      }
-
-      return {
-        nearest: null,
-        candidates: [],
-        rawResponse: lastRawResponse
-      };
-    }
-
-    function buildSearchRingGroups(clicked, maxDistance) {
-      const validRings = RING_RADII.filter(function (r) {
-        return r <= maxDistance;
-      });
-
-      if (!validRings.includes(maxDistance)) {
-        validRings.push(maxDistance);
-      }
-
-      return validRings.map(function (ringRadius) {
-        return {
-          ringRadius,
-          centers: buildCentersForRing(clicked, ringRadius)
-        };
-      });
-    }
-
-    function buildCentersForRing(clicked, ringRadius) {
-      if (ringRadius === 0) {
-        return [
-          {
-            x: clicked.x,
-            y: clicked.y,
-            ringRadius
-          }
-        ];
-      }
-
-      const circumference = 2 * Math.PI * ringRadius;
-
-      /*
-        ככל שהטבעת רחוקה יותר, צריך יותר נקודות בדיקה כדי שלא יהיו חורים.
-        cap של 96 כדי שהאתר לא יתקע.
-      */
-      const steps = Math.min(
-        96,
-        Math.max(8, Math.ceil(circumference / (GOVMAP_MAX_SAFE_RADIUS * 1.35)))
-      );
-
-      const centers = [];
-
-      for (let i = 0; i < steps; i++) {
-        const angle = (Math.PI * 2 * i) / steps;
-
-        const p = {
-          x: clicked.x + Math.cos(angle) * ringRadius,
-          y: clicked.y + Math.sin(angle) * ringRadius,
-          ringRadius
-        };
-
-        if (isValidIsraelGridPoint(p)) {
-          centers.push(p);
-        }
-      }
-
-      return centers;
     }
 
     function dedupeCandidates(candidates) {
@@ -1243,13 +1399,6 @@
           geometry: "POINT(" + center.x + " " + center.y + ")",
           layerName: layerName,
           fields: ["objectid"],
-          getShapes: true,
-          radius: radius
-        },
-        {
-          geometry: "POINT(" + center.x + " " + center.y + ")",
-          layerName: layerName,
-          fields: ["objectid", "name", "shem", "address"],
           getShapes: true,
           radius: radius
         },
@@ -1555,7 +1704,64 @@
         };
       }
 
-      return extractStrictGeometryPoint(response);
+      return extractAnyIsraelPoint(response);
+    }
+
+    function extractAnyIsraelPoint(value) {
+      const visited = new WeakSet();
+
+      function walk(v, depth) {
+        if (!v || depth > 8) return null;
+
+        if (typeof v === "string") {
+          return parseWkt(v);
+        }
+
+        if (Array.isArray(v)) {
+          for (const item of v) {
+            const found = walk(item, depth + 1);
+            if (found) return found;
+          }
+          return null;
+        }
+
+        if (typeof v !== "object") return null;
+        if (visited.has(v)) return null;
+        visited.add(v);
+
+        const direct = directXYPoint(v);
+        if (direct) return direct;
+
+        const priorityKeys = [
+          "mapPoint",
+          "point",
+          "Point",
+          "location",
+          "Location",
+          "center",
+          "Center",
+          "result",
+          "Result",
+          "data",
+          "Data"
+        ];
+
+        for (const key of priorityKeys) {
+          if (Object.prototype.hasOwnProperty.call(v, key)) {
+            const found = walk(v[key], depth + 1);
+            if (found) return found;
+          }
+        }
+
+        for (const key of Object.keys(v)) {
+          const found = walk(v[key], depth + 1);
+          if (found) return found;
+        }
+
+        return null;
+      }
+
+      return walk(value, 0);
     }
 
     function extractStrictGeometryPoint(item) {
@@ -1609,8 +1815,15 @@
     function directXYPoint(obj) {
       if (!obj || typeof obj !== "object") return null;
 
-      const possibleX = obj.x ?? obj.X;
-      const possibleY = obj.y ?? obj.Y;
+      const possibleX =
+        obj.x ?? obj.X ??
+        obj.mapX ?? obj.MapX ??
+        obj.itmX ?? obj.ITMX;
+
+      const possibleY =
+        obj.y ?? obj.Y ??
+        obj.mapY ?? obj.MapY ??
+        obj.itmY ?? obj.ITMY;
 
       const point = {
         x: Number(possibleX),
@@ -1856,7 +2069,7 @@
         escapeHtml(searchResult.layerName) + "<br><br>" +
         "<strong>טווח שבו נמצא:</strong><br>" +
         formatDistance(searchResult.radius) + "<br><br>" +
-        "<strong>נקודת הלחיצה:</strong><br>" +
+        "<strong>נקודת הבדיקה:</strong><br>" +
         "X: " + Math.round(clicked.x) + " · Y: " + Math.round(clicked.y) + "<br><br>" +
         "<strong>המקלט:</strong><br>" +
         "X: " + Math.round(nearest.x) + " · Y: " + Math.round(nearest.y) +
@@ -1876,13 +2089,15 @@
       document.getElementById("topLastDistance").textContent =
         state.lastNearest ? formatDistanceShort(state.lastNearest.distanceMeters) : "—";
 
-      document.getElementById("topResultsCount").textContent =
-        state.lastCandidates ? state.lastCandidates.length : 0;
+      document.getElementById("topRequestsCount").textContent =
+        state.requestsCounter || 0;
     }
 
     function renderResultsTable() {
       const tbody = document.getElementById("resultsTable");
-      const search = document.getElementById("mainSearch").value.trim().toLowerCase();
+      const search = document.getElementById("resultsSearch")
+        ? document.getElementById("resultsSearch").value.trim().toLowerCase()
+        : "";
 
       tbody.innerHTML = "";
 
@@ -1930,22 +2145,7 @@
         return;
       }
 
-      const search = document.getElementById("mainSearch").value.trim().toLowerCase();
-
-      const foundIndex = rows.findIndex(function (candidate) {
-        const text = [
-          candidate.name,
-          candidate.address,
-          candidate.description,
-          candidate.objectId
-        ].join(" ").toLowerCase();
-
-        return !search || text.includes(search);
-      });
-
-      if (foundIndex >= 0) {
-        zoomToResult(foundIndex);
-      }
+      zoomToResult(0);
     }
 
     function zoomToResult(index) {
