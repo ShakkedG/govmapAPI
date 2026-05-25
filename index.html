@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>GovMap Project</title>
+
+  <script
+    src="https://www.govmap.gov.il/govmap/api/govmap.api.js"
+    defer
+    onload="initGovMap()">
+  </script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      font-family: Arial, sans-serif;
+      background: #f3f4f6;
+      overflow: hidden;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    .sidebar {
+      background: white;
+      padding: 18px;
+      border-left: 1px solid #ddd;
+      box-shadow: -3px 0 15px rgba(0, 0, 0, 0.08);
+      overflow-y: auto;
+      z-index: 10;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 24px;
+    }
+
+    p {
+      color: #555;
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    .card {
+      margin-top: 16px;
+      padding: 14px;
+      border-radius: 14px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    input,
+    button {
+      width: 100%;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid #d1d5db;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    button {
+      background: #111827;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+    }
+
+    button.secondary {
+      background: #374151;
+    }
+
+    button.danger {
+      background: #991b1b;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    #status {
+      padding: 10px;
+      border-radius: 10px;
+      background: #ecfdf5;
+      color: #065f46;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    #output {
+      direction: ltr;
+      text-align: left;
+      white-space: pre-wrap;
+      background: #111827;
+      color: #d1fae5;
+      padding: 10px;
+      border-radius: 10px;
+      min-height: 120px;
+      max-height: 260px;
+      overflow: auto;
+      font-size: 12px;
+    }
+
+    @media (max-width: 850px) {
+      .app {
+        grid-template-columns: 1fr;
+        grid-template-rows: 330px 1fr;
+      }
+
+      .sidebar {
+        border-left: none;
+        border-bottom: 1px solid #ddd;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <h1>אתר GOVMAP</h1>
+
+      <p>
+        זה פרויקט חדש עם קובץ אחד בלבד.
+        המפה נטענת ישירות דרך GOVMAP API.
+      </p>
+
+      <div class="card">
+        <strong>סטטוס</strong>
+        <div id="status">טוען מפה...</div>
+      </div>
+
+      <div class="card">
+        <label for="layerName">שם שכבה, אם יש לך</label>
+        <input id="layerName" placeholder="לדוגמה: PARCEL_ALL או שם שכבת משתמש" />
+
+        <button onclick="turnLayerOn()">הדלק שכבה</button>
+        <button class="secondary" onclick="turnLayerOff()">כבה שכבה</button>
+      </div>
+
+      <div class="card">
+        <button onclick="getMapCenter()">קבל מרכז מפה</button>
+        <button onclick="getMapUrl()">קבל קישור למפה</button>
+        <button onclick="choosePoint()">בחר נקודה במפה</button>
+        <button class="danger" onclick="clearOutput()">נקה פלט</button>
+      </div>
+
+      <div class="card">
+        <strong>פלט בדיקה</strong>
+        <pre id="output">אין פלט עדיין.</pre>
+      </div>
+    </aside>
+
+    <main>
+      <div id="map"></div>
+    </main>
+  </div>
+
+  <script>
+    const GOVMAP_TOKEN = "ede9a5fd-7c23-432f-8ffb-d85feffa3f3c";
+
+    let isMapReady = false;
+
+    function setStatus(message, isError = false) {
+      const status = document.getElementById("status");
+
+      status.textContent = message;
+
+      if (isError) {
+        status.style.background = "#fef2f2";
+        status.style.color = "#991b1b";
+      } else {
+        status.style.background = "#ecfdf5";
+        status.style.color = "#065f46";
+      }
+    }
+
+    function print(title, data) {
+      const output = document.getElementById("output");
+
+      let text;
+
+      try {
+        text = typeof data === "string" ? data : JSON.stringify(data, null, 2);
+      } catch (error) {
+        text = String(data);
+      }
+
+      output.textContent = title + "\n\n" + text;
+      console.log(title, data);
+    }
+
+    function clearOutput() {
+      document.getElementById("output").textContent = "אין פלט עדיין.";
+    }
+
+    function requireMapReady() {
+      if (!window.govmap || !isMapReady) {
+        setStatus("המפה עדיין לא מוכנה.", true);
+        return false;
+      }
+
+      return true;
+    }
+
+    function initGovMap() {
+      try {
+        govmap.createMap("map", {
+          token: GOVMAP_TOKEN,
+
+          center: {
+            x: 176000,
+            y: 657000
+          },
+
+          level: 3,
+
+          showXY: true,
+          identifyOnClick: true,
+          layersMode: 2,
+          zoomButtons: true,
+          bgButton: true,
+          background: "1",
+
+          onLoad: function () {
+            isMapReady = true;
+            setStatus("המפה נטענה בהצלחה.");
+            print("GovMap loaded", {
+              ready: true,
+              center: {
+                x: 176000,
+                y: 657000
+              }
+            });
+          },
+
+          onClick: function (event) {
+            print("Map clicked", event);
+          },
+
+          onPan: function (event) {
+            console.log("Map panned", event);
+          },
+
+          onError: function (error) {
+            setStatus("שגיאה בטעינת GOVMAP. בדוק שהטוקן מאושר לדומיין של האתר.", true);
+            print("GovMap error", error);
+          }
+        });
+      } catch (error) {
+        setStatus("לא הצלחתי להפעיל את GOVMAP.", true);
+        print("Init error", {
+          message: error.message,
+          stack: error.stack
+        });
+      }
+    }
+
+    function getLayerName() {
+      return document.getElementById("layerName").value.trim();
+    }
+
+    function turnLayerOn() {
+      if (!requireMapReady()) return;
+
+      const layerName = getLayerName();
+
+      if (!layerName) {
+        setStatus("תכתוב קודם שם שכבה.", true);
+        return;
+      }
+
+      try {
+        govmap.setVisibleLayers([layerName]);
+        setStatus("השכבה הודלקה: " + layerName);
+        print("Layer ON", { layerName });
+      } catch (error) {
+        setStatus("לא הצלחתי להדליק את השכבה.", true);
+        print("Layer ON error", error);
+      }
+    }
+
+    function turnLayerOff() {
+      if (!requireMapReady()) return;
+
+      const layerName = getLayerName();
+
+      if (!layerName) {
+        setStatus("תכתוב קודם שם שכבה.", true);
+        return;
+      }
+
+      try {
+        govmap.setVisibleLayers([], [layerName]);
+        setStatus("השכבה כובתה: " + layerName);
+        print("Layer OFF", { layerName });
+      } catch (error) {
+        setStatus("לא הצלחתי לכבות את השכבה.", true);
+        print("Layer OFF error", error);
+      }
+    }
+
+    function getMapCenter() {
+      if (!requireMapReady()) return;
+
+      try {
+        govmap.getCenter()
+          .then(function (response) {
+            setStatus("מרכז המפה התקבל.");
+            print("Map center", response);
+          })
+          .catch(function (error) {
+            setStatus("שגיאה בקבלת מרכז המפה.", true);
+            print("getCenter error", error);
+          });
+      } catch (error) {
+        setStatus("הפונקציה getCenter לא עבדה.", true);
+        print("getCenter exception", error);
+      }
+    }
+
+    function getMapUrl() {
+      if (!requireMapReady()) return;
+
+      govmap.getMapUrl()
+        .then(function (response) {
+          setStatus("קישור המפה התקבל.");
+          print("Map URL", response);
+        })
+        .catch(function (error) {
+          setStatus("שגיאה בקבלת קישור המפה.", true);
+          print("getMapUrl error", error);
+        });
+    }
+
+    function choosePoint() {
+      if (!requireMapReady()) return;
+
+      setStatus("לחץ על נקודה במפה.");
+
+      govmap.getXY()
+        .then(function (response) {
+          setStatus("נקודה נבחרה.");
+          print("Selected point", response);
+        })
+        .catch(function (error) {
+          setStatus("שגיאה בבחירת נקודה.", true);
+          print("getXY error", error);
+        });
+    }
+  </script>
+</body>
+</html>
