@@ -16,8 +16,8 @@
     :root {
       --bg: #08111f;
       --panel: rgba(15, 23, 42, 0.95);
-      --card: rgba(30, 41, 59, 0.9);
-      --card2: rgba(2, 6, 23, 0.55);
+      --card: rgba(30, 41, 59, 0.92);
+      --dark: rgba(2, 6, 23, 0.62);
       --border: rgba(148, 163, 184, 0.25);
       --text: #f8fafc;
       --muted: #94a3b8;
@@ -58,23 +58,30 @@
       top: 16px;
       right: 16px;
       left: 16px;
-      height: 64px;
       z-index: 20;
       display: grid;
-      grid-template-columns: 380px 1fr 360px;
+      grid-template-columns: 380px 1fr 330px;
       gap: 12px;
       pointer-events: none;
     }
 
     .brand,
     .searchBox,
-    .quickStats {
-      pointer-events: auto;
+    .quickStats,
+    .panel,
+    .status,
+    .floatingActions button {
       background: var(--panel);
       backdrop-filter: blur(14px);
       border: 1px solid var(--border);
-      border-radius: var(--radius);
       box-shadow: var(--shadow);
+    }
+
+    .brand,
+    .searchBox,
+    .quickStats {
+      pointer-events: auto;
+      border-radius: var(--radius);
     }
 
     .brand {
@@ -82,6 +89,7 @@
       align-items: center;
       gap: 12px;
       padding: 12px 16px;
+      min-height: 64px;
     }
 
     .logo {
@@ -110,22 +118,24 @@
 
     .searchBox {
       display: grid;
-      grid-template-columns: 1fr 130px;
+      grid-template-columns: 1fr 120px;
       gap: 8px;
       padding: 10px;
       align-items: center;
+      min-height: 64px;
     }
 
     .quickStats {
       display: grid;
       grid-template-columns: 1fr 1fr;
       overflow: hidden;
+      min-height: 64px;
     }
 
     .miniStat {
       padding: 11px 12px;
       background: rgba(30, 41, 59, 0.65);
-      border-left: 1px solid rgba(148, 163, 184, 0.12);
+      border-left: 1px solid rgba(148, 163, 184, 0.15);
     }
 
     .miniStatLabel {
@@ -148,20 +158,13 @@
       bottom: 16px;
       z-index: 19;
       width: 430px;
-      display: flex;
-      flex-direction: column;
       pointer-events: none;
     }
 
     .panel {
       pointer-events: auto;
-      flex: 1;
-      min-height: 0;
-      background: var(--panel);
-      backdrop-filter: blur(14px);
-      border: 1px solid var(--border);
+      height: 100%;
       border-radius: 24px;
-      box-shadow: var(--shadow);
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -204,10 +207,6 @@
     }
 
     .cardTitle {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
       font-size: 15px;
       font-weight: 900;
       margin-bottom: 12px;
@@ -226,7 +225,7 @@
     }
 
     .statCard {
-      background: var(--card2);
+      background: var(--dark);
       border: 1px solid var(--border);
       border-radius: 16px;
       padding: 12px;
@@ -245,10 +244,10 @@
       text-align: right;
     }
 
-    .statValue.blue { color: var(--blue); }
-    .statValue.green { color: var(--green); }
-    .statValue.red { color: var(--red); }
-    .statValue.yellow { color: var(--yellow); }
+    .blue { color: var(--blue); }
+    .green { color: var(--green); }
+    .red { color: var(--red); }
+    .yellow { color: var(--yellow); }
 
     label {
       display: block;
@@ -279,7 +278,7 @@
     }
 
     textarea {
-      min-height: 120px;
+      min-height: 180px;
       direction: ltr;
       text-align: left;
       resize: vertical;
@@ -313,6 +312,11 @@
 
     button:active {
       transform: scale(0.99);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
     }
 
     .primary {
@@ -368,7 +372,7 @@
     }
 
     .result {
-      background: rgba(2, 6, 23, 0.55);
+      background: var(--dark);
       border: 1px solid var(--border);
       border-radius: 16px;
       padding: 13px;
@@ -463,9 +467,7 @@
     .floatingActions button {
       width: auto;
       min-width: 48px;
-      background: rgba(15, 23, 42, 0.94);
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow);
+      border-radius: 13px;
     }
 
     .status {
@@ -474,14 +476,12 @@
       top: 92px;
       z-index: 18;
       max-width: 390px;
-      background: rgba(15, 23, 42, 0.94);
-      border: 1px solid rgba(34, 197, 94, 0.45);
       border-radius: 18px;
       padding: 12px 14px;
-      box-shadow: var(--shadow);
       color: var(--text);
       font-size: 13px;
       line-height: 1.5;
+      border-color: rgba(34, 197, 94, 0.45);
     }
 
     .hidden {
@@ -495,7 +495,6 @@
     @media (max-width: 980px) {
       .topbar {
         grid-template-columns: 1fr;
-        height: auto;
       }
 
       .searchBox,
@@ -527,7 +526,7 @@
       <div class="logo">SM</div>
       <div>
         <div class="brandTitle">ShelterMap</div>
-        <div class="brandSub">מציאת המקלט הקרוב ביותר לפי שכבת GOVMAP</div>
+        <div class="brandSub">קו אווירי אל המקלט הקרוב ביותר</div>
       </div>
     </div>
 
@@ -571,20 +570,13 @@
             </div>
 
             <div class="muted" style="margin-top:10px;">
-              האתר שואל את GOVMAP על שכבת המקלטים סביב נקודת הלחיצה, מוצא את התוצאה הקרובה ביותר, ומציג מרחק אווירי.
-            </div>
-
-            <div class="warning">
-              בשלב הראשון הקוד מציג קו עד המקלט רק אם GOVMAP מחזיר X/Y או גיאומטריה בתשובה. אם לא — עדיין יוצג המרחק והתוצאה הקרובה.
+              הקוד מחפש בשכבת המקלטים עם גאומטריה, מחשב את המרחק לפי X/Y, ומצייר קו אדום עד המקלט הקרוב.
             </div>
           </div>
 
           <div class="card">
             <div class="cardTitle">תוצאה אחרונה</div>
-
-            <div class="result" id="nearestResult">
-              עדיין לא נבחרה נקודה.
-            </div>
+            <div class="result" id="nearestResult">עדיין לא נבחרה נקודה.</div>
           </div>
 
           <div class="card">
@@ -593,11 +585,11 @@
             <div class="statsGrid">
               <div class="statCard">
                 <div class="statLabel">שכבת חיפוש</div>
-                <div class="statValue blue" id="activeLayerTitle">BOMBSHELTERS</div>
+                <div class="statValue blue" id="activeLayerTitle">—</div>
               </div>
 
               <div class="statCard">
-                <div class="statLabel">רדיוס אחרון</div>
+                <div class="statLabel">רדיוס</div>
                 <div class="statValue yellow" id="lastRadius">—</div>
               </div>
 
@@ -618,7 +610,7 @@
           <div class="card">
             <div class="cardTitle">הגדרות שכבת מקלטים</div>
 
-            <label for="layerInput">שם / מספר שכבה ב־GOVMAP</label>
+            <label for="layerInput">שם שכבה</label>
             <input id="layerInput" value="BOMBSHELTERS" />
 
             <div class="pillGrid">
@@ -626,15 +618,15 @@
               <button class="pill" onclick="setLayerName('417')">417</button>
             </div>
 
-            <label for="radiusSelect">רדיוס חיפוש ראשוני</label>
+            <label for="radiusSelect">רדיוס חיפוש</label>
             <select id="radiusSelect">
+              <option value="250">250 מטר</option>
               <option value="500">500 מטר</option>
               <option value="1000">1 ק״מ</option>
               <option value="2000">2 ק״מ</option>
               <option value="3000" selected>3 ק״מ</option>
               <option value="5000">5 ק״מ</option>
               <option value="10000">10 ק״מ</option>
-              <option value="15000">15 ק״מ</option>
             </select>
 
             <div class="row">
@@ -660,17 +652,17 @@
             <div class="row3">
               <div>
                 <label for="manualX">X</label>
-                <input id="manualX" value="166000" />
+                <input id="manualX" value="194388" />
               </div>
 
               <div>
                 <label for="manualY">Y</label>
-                <input id="manualY" value="633000" />
+                <input id="manualY" value="656159" />
               </div>
 
               <div>
                 <label for="manualZoom">זום</label>
-                <input id="manualZoom" value="7" />
+                <input id="manualZoom" value="8" />
               </div>
             </div>
 
@@ -689,9 +681,9 @@
               <table>
                 <thead>
                   <tr>
-                    <th>שם / תיאור</th>
+                    <th>מקלט</th>
                     <th>מרחק</th>
-                    <th>כתובת</th>
+                    <th>ObjectId</th>
                     <th>פעולה</th>
                   </tr>
                 </thead>
@@ -725,8 +717,8 @@
     const GOVMAP_TOKEN = "ede9a5fd-7c23-432f-8ffb-d85feffa3f3c";
 
     const DEFAULT_LAYER_NAME = "BOMBSHELTERS";
-    const FALLBACK_LAYER_NAMES = ["BOMBSHELTERS", "417"];
-    const AUTO_RADII = [500, 1000, 2000, 3000, 5000, 10000, 15000];
+    const LAYER_FALLBACKS = ["BOMBSHELTERS", "417"];
+    const RADIUS_FALLBACKS = [250, 500, 1000, 2000, 3000, 5000, 10000];
 
     const state = {
       ready: false,
@@ -736,25 +728,18 @@
       lastNearest: null,
       lastCandidates: [],
       lastRadius: null,
-      lastLayerUsed: DEFAULT_LAYER_NAME,
-      lastRawResponse: null
+      lastLayerUsed: DEFAULT_LAYER_NAME
     };
 
     function initGovMap() {
       try {
         govmap.createMap("map", {
           token: GOVMAP_TOKEN,
-
-          center: {
-            x: 176000,
-            y: 657000
-          },
-
+          center: { x: 176000, y: 657000 },
           level: 3,
           background: "1",
           layers: [DEFAULT_LAYER_NAME],
           visibleLayers: [DEFAULT_LAYER_NAME],
-
           showXY: true,
           identifyOnClick: false,
           layersMode: 2,
@@ -764,11 +749,8 @@
           onLoad: function () {
             state.ready = true;
             updateDashboard();
-            setStatus("המפה נטענה. אפשר ללחוץ על 'מדוד' ואז לבחור נקודה במפה.");
-            print("GOVMAP loaded", {
-              ready: true,
-              defaultLayer: DEFAULT_LAYER_NAME
-            });
+            setStatus("המפה נטענה. לחץ על מדוד ואז בחר נקודה במפה.");
+            print("GOVMAP loaded", { ready: true, layer: DEFAULT_LAYER_NAME });
           },
 
           onError: function (error) {
@@ -789,9 +771,9 @@
 
       button.classList.add("active");
 
-      document.getElementById("tab-dashboard").classList.add("hidden");
-      document.getElementById("tab-layers").classList.add("hidden");
-      document.getElementById("tab-data").classList.add("hidden");
+      ["dashboard", "layers", "data"].forEach(function (name) {
+        document.getElementById("tab-" + name).classList.add("hidden");
+      });
 
       document.getElementById("tab-" + tabName).classList.remove("hidden");
     }
@@ -823,20 +805,6 @@
       console.log(title, data);
     }
 
-    function clearDebug() {
-      document.getElementById("debugBox").textContent = "אין פלט עדיין.";
-    }
-
-    function copyDebug() {
-      const text = document.getElementById("debugBox").textContent;
-
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(text).then(function () {
-          setStatus("ה־Debug הועתק.");
-        });
-      }
-    }
-
     function safeStringify(value) {
       try {
         return typeof value === "string" ? value : JSON.stringify(value, null, 2);
@@ -852,6 +820,20 @@
       };
     }
 
+    function clearDebug() {
+      document.getElementById("debugBox").textContent = "אין פלט עדיין.";
+    }
+
+    function copyDebug() {
+      const text = document.getElementById("debugBox").textContent;
+
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(function () {
+          setStatus("ה־Debug הועתק.");
+        });
+      }
+    }
+
     function getLayerName() {
       return document.getElementById("layerInput").value.trim() || DEFAULT_LAYER_NAME;
     }
@@ -863,29 +845,27 @@
       setStatus("נבחרה שכבה: " + name);
     }
 
-    function getSearchRadius() {
-      const radius = Number(document.getElementById("radiusSelect").value);
-      return Number.isFinite(radius) ? radius : 3000;
+    function getSelectedRadius() {
+      const value = Number(document.getElementById("radiusSelect").value);
+      return Number.isFinite(value) ? value : 3000;
     }
 
-    function getLayerSearchOrder() {
-      const inputLayer = getLayerName();
-      const all = [inputLayer].concat(FALLBACK_LAYER_NAMES);
-      return Array.from(new Set(all.filter(Boolean)));
+    function getLayerOrder() {
+      return unique([getLayerName()].concat(LAYER_FALLBACKS));
     }
 
-    function getRadiusSearchOrder() {
-      const selected = getSearchRadius();
+    function getRadiusOrder() {
+      const selected = getSelectedRadius();
 
-      const ordered = [selected]
-        .concat(AUTO_RADII.filter(function (r) {
-          return r > selected;
-        }))
-        .concat(AUTO_RADII.filter(function (r) {
-          return r < selected;
-        }));
+      return unique(
+        [selected]
+          .concat(RADIUS_FALLBACKS.filter(function (r) { return r > selected; }))
+          .concat(RADIUS_FALLBACKS.filter(function (r) { return r < selected; }))
+      );
+    }
 
-      return Array.from(new Set(ordered));
+    function unique(arr) {
+      return Array.from(new Set(arr.filter(Boolean)));
     }
 
     function showShelterLayer() {
@@ -898,9 +878,8 @@
         state.lastLayerUsed = layerName;
         updateDashboard();
         setStatus("שכבת המקלטים מוצגת: " + layerName);
-        print("Show shelter layer", { layerName });
       } catch (error) {
-        setStatus("לא הצלחתי להציג את השכבה. נסה לעבור בין BOMBSHELTERS לבין 417.", true);
+        setStatus("לא הצלחתי להציג את השכבה. נסה BOMBSHELTERS או 417.", true);
         print("Show layer error", normalizeError(error));
       }
     }
@@ -913,7 +892,6 @@
       try {
         govmap.setVisibleLayers([], [layerName]);
         setStatus("השכבה הוסתרה: " + layerName);
-        print("Hide shelter layer", { layerName });
       } catch (error) {
         setStatus("לא הצלחתי להסתיר את השכבה.", true);
         print("Hide layer error", normalizeError(error));
@@ -953,23 +931,18 @@
 
         const onPoint = function (response) {
           if (requestId !== state.measureRequestId) return;
-          handleMapPointResponse(response);
+          handleClickedPointResponse(response);
         };
 
         const onError = function (error) {
           if (requestId !== state.measureRequestId) return;
-
           setStatus("שגיאה בקבלת נקודת לחיצה.", true);
           print("getXY error", normalizeError(error));
         };
 
         if (result && typeof result.progress === "function") {
           result.progress(onPoint);
-
-          if (typeof result.fail === "function") {
-            result.fail(onError);
-          }
-
+          if (typeof result.fail === "function") result.fail(onError);
           return;
         }
 
@@ -985,11 +958,11 @@
       }
     }
 
-    async function handleMapPointResponse(response) {
+    async function handleClickedPointResponse(response) {
       const point = extractMapPoint(response);
 
       if (!point) {
-        setStatus("לא הצלחתי לקרוא X/Y מהלחיצה. בדוק את ה־Debug.", true);
+        setStatus("לא הצלחתי לקרוא X/Y מהלחיצה.", true);
         print("Bad click response", response);
         return;
       }
@@ -1004,7 +977,7 @@
       document.getElementById("manualX").value = Math.round(clicked.x);
       document.getElementById("manualY").value = Math.round(clicked.y);
 
-      setStatus("מחפש מקלטים סביב הנקודה...");
+      setStatus("מחפש מקלטים ומנסה לקבל גיאומטריה לציור קו...");
 
       try {
         const searchResult = await findNearestShelter(clicked);
@@ -1012,8 +985,6 @@
         if (!searchResult || !searchResult.nearest) {
           state.lastNearest = null;
           state.lastCandidates = [];
-          state.lastRawResponse = searchResult ? searchResult.rawResponse : null;
-
           updateDashboard();
           renderResultsTable();
 
@@ -1021,16 +992,8 @@
             "לא נמצאו מקלטים ברדיוסי החיפוש שנבדקו.";
 
           setStatus("לא נמצאו מקלטים סביב הנקודה.", true);
-
-          print("No shelter found", {
-            clicked,
-            searchResult
-          });
-
-          if (window.govmap && typeof govmap.setDefaultTool === "function") {
-            govmap.setDefaultTool();
-          }
-
+          print("No shelter found", { clicked, searchResult });
+          resetGovMapTool();
           return;
         }
 
@@ -1038,7 +1001,6 @@
         state.lastCandidates = searchResult.candidates;
         state.lastRadius = searchResult.radius;
         state.lastLayerUsed = searchResult.layerName;
-        state.lastRawResponse = searchResult.rawResponse;
 
         updateNearestResult(clicked, searchResult.nearest, searchResult);
         renderResultsTable();
@@ -1055,11 +1017,8 @@
           rawResponse: searchResult.rawResponse
         });
 
-        setStatus("נמצא המקלט הקרוב ביותר.");
-
-        if (window.govmap && typeof govmap.setDefaultTool === "function") {
-          govmap.setDefaultTool();
-        }
+        setStatus("נמצא מקלט קרוב וצויר קו אליו.");
+        resetGovMapTool();
 
         if (state.measuring) {
           const nextId = ++state.measureRequestId;
@@ -1070,6 +1029,7 @@
       } catch (error) {
         setStatus("שגיאה בחיפוש מקלטים.", true);
         print("Nearest shelter search error", normalizeError(error));
+        resetGovMapTool();
       }
     }
 
@@ -1084,54 +1044,44 @@
         return;
       }
 
-      await handleMapPointResponse({
-        mapPoint: {
-          x,
-          y
-        }
-      });
+      await handleClickedPointResponse({ mapPoint: { x, y } });
     }
 
     async function findNearestShelter(clicked) {
-      const layersToTry = getLayerSearchOrder();
-      const radiiToTry = getRadiusSearchOrder();
+      const layerOrder = getLayerOrder();
+      const radiusOrder = getRadiusOrder();
 
       let lastRawResponse = null;
 
-      for (const radius of radiiToTry) {
-        for (const layerName of layersToTry) {
-          try {
-            const rawResponse = await getLayerDataSafe(layerName, clicked, radius);
-            lastRawResponse = rawResponse;
+      for (const radius of radiusOrder) {
+        for (const layerName of layerOrder) {
+          const intersectResult = await queryIntersectFeatures(layerName, clicked, radius);
+          lastRawResponse = intersectResult.rawResponse;
 
-            const candidates = parseLayerDataResponse(rawResponse, clicked);
-
-            if (candidates.length) {
-              const sorted = candidates
-                .filter(function (candidate) {
-                  return candidate && candidate.name;
-                })
-                .sort(function (a, b) {
-                  const da = Number.isFinite(a.distanceMeters) ? a.distanceMeters : Infinity;
-                  const db = Number.isFinite(b.distanceMeters) ? b.distanceMeters : Infinity;
-                  return da - db;
-                });
-
-              if (sorted.length) {
-                return {
-                  layerName,
-                  radius,
-                  nearest: sorted[0],
-                  candidates: sorted,
-                  rawResponse
-                };
-              }
-            }
-          } catch (error) {
-            lastRawResponse = {
-              error: normalizeError(error),
+          if (intersectResult.candidates.length) {
+            return {
               layerName,
-              radius
+              radius,
+              nearest: intersectResult.candidates[0],
+              candidates: intersectResult.candidates,
+              rawResponse: intersectResult.rawResponse
+            };
+          }
+        }
+      }
+
+      for (const radius of radiusOrder) {
+        for (const layerName of layerOrder) {
+          const dataResult = await queryGetLayerData(layerName, clicked, radius);
+          lastRawResponse = dataResult.rawResponse;
+
+          if (dataResult.candidates.length) {
+            return {
+              layerName,
+              radius,
+              nearest: dataResult.candidates[0],
+              candidates: dataResult.candidates,
+              rawResponse: dataResult.rawResponse
             };
           }
         }
@@ -1144,154 +1094,197 @@
       };
     }
 
-    async function getLayerDataSafe(layerName, clicked, radius) {
-      const requestVariants = [
-        {
+    async function queryIntersectFeatures(layerName, clicked, radius) {
+      const fieldsVariants = [
+        ["objectid"],
+        ["OBJECTID"],
+        ["objectid", "name", "shem", "address"],
+        []
+      ];
+
+      let lastResponse = null;
+
+      for (const fields of fieldsVariants) {
+        try {
+          const params = {
+            geometry: "POINT(" + clicked.x + " " + clicked.y + ")",
+            layerName: layerName,
+            fields: fields,
+            getShapes: true,
+            radius: radius
+          };
+
+          const response = await toPromise(govmap.intersectFeatures(params));
+          lastResponse = response;
+
+          const candidates = parseIntersectCandidates(response, clicked)
+            .filter(function (candidate) {
+              return Number.isFinite(candidate.x) &&
+                     Number.isFinite(candidate.y) &&
+                     candidate.distanceMeters > 0.5;
+            })
+            .sort(function (a, b) {
+              return a.distanceMeters - b.distanceMeters;
+            });
+
+          if (candidates.length) {
+            return {
+              candidates,
+              rawResponse: response
+            };
+          }
+        } catch (error) {
+          lastResponse = { error: normalizeError(error), layerName, radius, fields };
+        }
+      }
+
+      return {
+        candidates: [],
+        rawResponse: lastResponse
+      };
+    }
+
+    async function queryGetLayerData(layerName, clicked, radius) {
+      try {
+        const response = await toPromise(govmap.getLayerData({
           LayerName: layerName,
           Point: {
             x: clicked.x,
             y: clicked.y
           },
           Radius: radius
-        },
-        {
-          layerName: layerName,
-          point: {
-            x: clicked.x,
-            y: clicked.y
-          },
-          radius: radius
-        }
-      ];
+        }));
 
-      let lastError = null;
+        const candidates = parseLayerDataCandidates(response, clicked)
+          .filter(function (candidate) {
+            return candidate.distanceMeters > 0.5;
+          })
+          .sort(function (a, b) {
+            return a.distanceMeters - b.distanceMeters;
+          });
 
-      for (const params of requestVariants) {
-        try {
-          const result = govmap.getLayerData(params);
-          return await toPromise(result);
-        } catch (error) {
-          lastError = error;
-        }
+        return {
+          candidates,
+          rawResponse: response
+        };
+      } catch (error) {
+        return {
+          candidates: [],
+          rawResponse: { error: normalizeError(error), layerName, radius }
+        };
       }
-
-      throw lastError || new Error("getLayerData failed");
     }
 
-    function toPromise(result) {
-      return new Promise(function (resolve, reject) {
-        if (!result) {
-          resolve(result);
-          return;
-        }
-
-        if (typeof result.then === "function") {
-          result.then(resolve, reject);
-          return;
-        }
-
-        if (typeof result.done === "function") {
-          result.done(resolve);
-
-          if (typeof result.fail === "function") {
-            result.fail(reject);
-          }
-
-          return;
-        }
-
-        resolve(result);
-      });
-    }
-
-    function parseLayerDataResponse(response, clicked) {
-      const objects = collectEntityObjects(response);
-      const seen = new WeakSet();
+    function parseIntersectCandidates(response, clicked) {
+      const items = getDataItems(response);
       const candidates = [];
 
-      objects.forEach(function (raw, index) {
-        if (!raw || typeof raw !== "object") return;
-        if (seen.has(raw)) return;
-        seen.add(raw);
+      items.forEach(function (item, index) {
+        const point = extractPoint(item);
 
-        const attrs = flattenAttributes(raw);
-        const point = extractPoint(raw);
-        let distance = extractDistance(raw, attrs);
+        if (!point) return;
 
-        if (!Number.isFinite(distance) && point) {
-          distance = distanceBetween(clicked, point);
-        }
-
-        const name = extractName(raw, attrs, index);
-        const address = extractAddress(attrs);
-        const description = extractDescription(attrs);
-
-        if (!name && !address && !Number.isFinite(distance)) {
-          return;
-        }
+        const attrs = flattenAttributes(item);
+        const objectId = getObjectId(item, attrs);
+        const distance = distanceBetween(clicked, point);
 
         candidates.push({
           index,
-          name: name || "מקלט / מרחב מוגן",
-          address: address || "",
-          description: description || "",
-          x: point ? point.x : null,
-          y: point ? point.y : null,
-          distanceMeters: Number.isFinite(distance) ? distance : null,
-          raw
+          source: "intersectFeatures",
+          objectId,
+          name: extractName(item, attrs, objectId, index),
+          address: extractAddress(attrs),
+          description: extractDescription(attrs),
+          x: point.x,
+          y: point.y,
+          distanceMeters: distance,
+          raw: item
         });
       });
 
       return candidates;
     }
 
-    function collectEntityObjects(value) {
-      const result = [];
-      const visited = new WeakSet();
+    function parseLayerDataCandidates(response, clicked) {
+      const items = getDataItems(response);
+      const candidates = [];
 
-      function walk(v, depth) {
-        if (!v || depth > 8) return;
+      items.forEach(function (item, index) {
+        const attrs = flattenAttributes(item);
+        const objectId = getObjectId(item, attrs);
+        const point = extractPoint(item);
 
-        if (Array.isArray(v)) {
-          const objectItems = v.filter(function (item) {
-            return item && typeof item === "object";
-          });
+        let distance = extractDistance(attrs);
 
-          if (objectItems.length) {
-            objectItems.forEach(function (item) {
-              result.push(item);
-            });
-          }
+        if (!Number.isFinite(distance) && point) {
+          distance = distanceBetween(clicked, point);
+        }
 
-          v.forEach(function (item) {
-            walk(item, depth + 1);
-          });
-
+        if (!Number.isFinite(distance)) {
           return;
         }
 
-        if (typeof v !== "object") return;
-        if (visited.has(v)) return;
-        visited.add(v);
+        candidates.push({
+          index,
+          source: "getLayerData",
+          objectId,
+          name: extractName(item, attrs, objectId, index),
+          address: extractAddress(attrs),
+          description: extractDescription(attrs),
+          x: point ? point.x : null,
+          y: point ? point.y : null,
+          distanceMeters: distance,
+          raw: item
+        });
+      });
 
-        const keys = Object.keys(v);
-        const looksLikeEntity =
-          keys.some(function (k) {
-            return /name|shem|שם|address|כתובת|distance|מרחק|geometry|geom|shape|x|y/i.test(k);
-          });
+      return candidates;
+    }
 
-        if (looksLikeEntity && depth > 0) {
-          result.push(v);
-        }
+    function getDataItems(response) {
+      if (!response) return [];
 
-        keys.forEach(function (key) {
-          walk(v[key], depth + 1);
+      if (Array.isArray(response)) return response;
+
+      if (Array.isArray(response.data)) return response.data;
+      if (response.data && Array.isArray(response.data.Data)) return response.data.Data;
+      if (response.layers && typeof response.layers === "object") {
+        return Object.keys(response.layers).flatMap(function (key) {
+          return Array.isArray(response.layers[key]) ? response.layers[key] : [];
         });
       }
 
-      walk(value, 0);
+      const arrays = [];
+      collectArrays(response, arrays, 0);
 
-      return result;
+      return arrays
+        .sort(function (a, b) { return b.length - a.length; })
+        .flat()
+        .filter(function (x) {
+          return x && typeof x === "object";
+        });
+    }
+
+    function collectArrays(value, arrays, depth) {
+      if (!value || depth > 5) return;
+
+      if (Array.isArray(value)) {
+        if (value.some(function (x) { return x && typeof x === "object"; })) {
+          arrays.push(value);
+        }
+
+        value.forEach(function (item) {
+          collectArrays(item, arrays, depth + 1);
+        });
+
+        return;
+      }
+
+      if (typeof value !== "object") return;
+
+      Object.keys(value).forEach(function (key) {
+        collectArrays(value[key], arrays, depth + 1);
+      });
     }
 
     function flattenAttributes(obj) {
@@ -1313,16 +1306,16 @@
         if (!value || depth > 6) return;
 
         if (Array.isArray(value)) {
-          value.forEach(function (item) {
+          value.forEach(function (item, i) {
             if (item && typeof item === "object") {
-              const possibleKey =
+              const key =
                 item.FieldName || item.fieldName ||
                 item.Name || item.name ||
                 item.Title || item.title ||
-                item.Alias || item.alias ||
-                item.key || item.Key;
+                item.key || item.Key ||
+                ("array_" + i);
 
-              const possibleValue =
+              const val =
                 item.Value !== undefined ? item.Value :
                 item.value !== undefined ? item.value :
                 item.Text !== undefined ? item.Text :
@@ -1331,9 +1324,9 @@
                 item.content !== undefined ? item.content :
                 null;
 
-              if (possibleKey && possibleValue !== null && possibleValue !== undefined) {
-                add(possibleKey, possibleValue);
-              }
+              if (val !== null && val !== undefined) add(key, val);
+            } else {
+              add("array_" + i, item);
             }
 
             walk(item, depth + 1);
@@ -1347,41 +1340,57 @@
         visited.add(value);
 
         Object.keys(value).forEach(function (key) {
-          const child = value[key];
-          add(key, child);
-          walk(child, depth + 1);
+          add(key, value[key]);
+          walk(value[key], depth + 1);
         });
       }
 
       walk(obj, 0);
-
       return attrs;
     }
 
-    function extractName(raw, attrs, index) {
-      const patterns = [
-        "שם מקלט",
+    function getObjectId(item, attrs) {
+      const direct =
+        item.ObjectId ?? item.OBJECTID ?? item.objectid ??
+        item.id ?? item.ID ?? item.ObjectID;
+
+      if (direct !== undefined && direct !== null && direct !== "") {
+        return String(direct);
+      }
+
+      const fromAttrs = findAttr(attrs, [
+        "objectid",
+        "object id",
+        "object_id",
+        "מזהה"
+      ]);
+
+      return fromAttrs || "";
+    }
+
+    function extractName(item, attrs, objectId, index) {
+      const name = findAttr(attrs, [
         "שם",
         "name",
         "shem",
-        "shelter",
-        "description",
-        "תיאור",
         "title",
-        "כותרת"
-      ];
+        "description",
+        "type",
+        "סוג"
+      ]);
 
-      const found = findAttr(attrs, patterns);
-      if (found) return found;
+      if (name) return name;
 
       const address = extractAddress(attrs);
       if (address) return address;
+
+      if (objectId) return "מקלט " + objectId;
 
       return "מקלט " + (index + 1);
     }
 
     function extractAddress(attrs) {
-      const patterns = [
+      return findAttr(attrs, [
         "כתובת",
         "address",
         "addr",
@@ -1391,13 +1400,11 @@
         "יישוב",
         "city",
         "town"
-      ];
-
-      return findAttr(attrs, patterns);
+      ]);
     }
 
     function extractDescription(attrs) {
-      const patterns = [
+      return findAttr(attrs, [
         "תיאור",
         "description",
         "remark",
@@ -1405,9 +1412,18 @@
         "הערה",
         "סוג",
         "type"
-      ];
+      ]);
+    }
 
-      return findAttr(attrs, patterns);
+    function extractDistance(attrs) {
+      const value = findAttr(attrs, [
+        "distance",
+        "dist",
+        "מרחק",
+        "merhak"
+      ]);
+
+      return parseNumber(value);
     }
 
     function findAttr(attrs, patterns) {
@@ -1424,8 +1440,7 @@
           if (
             value &&
             value !== "null" &&
-            value !== "undefined" &&
-            value !== "0"
+            value !== "undefined"
           ) {
             return value;
           }
@@ -1435,62 +1450,8 @@
       return "";
     }
 
-    function extractDistance(raw, attrs) {
-      const patterns = [
-        "distance",
-        "dist",
-        "מרחק",
-        "merhak"
-      ];
-
-      const fromAttrs = findAttr(attrs, patterns);
-      const parsedFromAttrs = parseNumber(fromAttrs);
-
-      if (Number.isFinite(parsedFromAttrs)) {
-        return parsedFromAttrs;
-      }
-
-      let found = null;
-
-      function walk(value, depth) {
-        if (found !== null || !value || depth > 5) return;
-
-        if (Array.isArray(value)) {
-          value.forEach(function (item) {
-            walk(item, depth + 1);
-          });
-          return;
-        }
-
-        if (typeof value !== "object") return;
-
-        Object.keys(value).forEach(function (key) {
-          if (found !== null) return;
-
-          const lower = key.toLowerCase();
-
-          if (
-            lower.includes("distance") ||
-            lower.includes("dist") ||
-            key.includes("מרחק")
-          ) {
-            const parsed = parseNumber(value[key]);
-            if (Number.isFinite(parsed)) {
-              found = parsed;
-            }
-          }
-
-          walk(value[key], depth + 1);
-        });
-      }
-
-      walk(raw, 0);
-
-      return found;
-    }
-
     function parseNumber(value) {
-      if (value === null || value === undefined) return NaN;
+      if (value === null || value === undefined || value === "") return NaN;
 
       const cleaned = String(value)
         .replace(/,/g, "")
@@ -1523,10 +1484,7 @@
           isNum(obj.Lat) ? Number(obj.Lat) :
           null;
 
-        if (x !== null && y !== null) {
-          return { x, y };
-        }
-
+        if (x !== null && y !== null) return { x, y };
         return null;
       }
 
@@ -1534,6 +1492,7 @@
         if (typeof text !== "string") return null;
 
         const pointMatch = text.match(/POINT\s*\(\s*([\d.\-]+)\s+([\d.\-]+)\s*\)/i);
+
         if (pointMatch) {
           return {
             x: Number(pointMatch[1]),
@@ -1541,12 +1500,19 @@
           };
         }
 
-        const firstPair = text.match(/([\d.\-]+)\s+([\d.\-]+)/);
-        if (firstPair && /LINESTRING|POLYGON|MULTIPOINT/i.test(text)) {
-          return {
-            x: Number(firstPair[1]),
-            y: Number(firstPair[2])
-          };
+        const pairMatches = Array.from(text.matchAll(/([\d.\-]+)\s+([\d.\-]+)/g));
+
+        if (pairMatches.length && /LINESTRING|POLYGON|MULTIPOINT|MULTIPOLYGON/i.test(text)) {
+          const points = pairMatches.map(function (m) {
+            return {
+              x: Number(m[1]),
+              y: Number(m[2])
+            };
+          }).filter(function (p) {
+            return Number.isFinite(p.x) && Number.isFinite(p.y);
+          });
+
+          return getCentroid(points);
         }
 
         return null;
@@ -1583,12 +1549,13 @@
         if (direct) return direct;
 
         const priorityKeys = [
+          "shape",
+          "Shape",
+          "SHAPE",
           "geometry",
           "Geometry",
           "geom",
           "Geom",
-          "shape",
-          "Shape",
           "wkt",
           "WKT",
           "mapPoint",
@@ -1619,13 +1586,8 @@
     function extractMapPoint(response) {
       if (!response) return null;
 
-      if (response.mapPoint && isPoint(response.mapPoint)) {
-        return response.mapPoint;
-      }
-
-      if (response.data && response.data.mapPoint && isPoint(response.data.mapPoint)) {
-        return response.data.mapPoint;
-      }
+      if (response.mapPoint && isPoint(response.mapPoint)) return response.mapPoint;
+      if (response.data && response.data.mapPoint && isPoint(response.data.mapPoint)) return response.data.mapPoint;
 
       return extractPoint(response);
     }
@@ -1638,32 +1600,43 @@
       );
     }
 
+    function getCentroid(points) {
+      if (!points || !points.length) return null;
+
+      let sx = 0;
+      let sy = 0;
+
+      points.forEach(function (p) {
+        sx += Number(p.x);
+        sy += Number(p.y);
+      });
+
+      return {
+        x: sx / points.length,
+        y: sy / points.length
+      };
+    }
+
     function distanceBetween(a, b) {
       const dx = Number(b.x) - Number(a.x);
       const dy = Number(b.y) - Number(a.y);
+
       return Math.sqrt(dx * dx + dy * dy);
     }
 
     async function drawResult(clicked, nearest) {
-      try {
-        await drawClickedPoint(clicked);
-
-        if (Number.isFinite(nearest.x) && Number.isFinite(nearest.y)) {
-          await drawNearestShelterPoint(nearest);
-          await drawLineToShelter(clicked, nearest);
-        }
-      } catch (error) {
-        setStatus("שגיאה בציור תוצאת המדידה.", true);
-        print("Draw result error", normalizeError(error));
+      if (!Number.isFinite(nearest.x) || !Number.isFinite(nearest.y)) {
+        setStatus("נמצא מקלט, אבל אין לו X/Y ולכן אי אפשר לצייר קו.", true);
+        await drawClickedPoint(clicked, true);
+        return;
       }
+
+      await drawClickedPoint(clicked, true);
+      await drawNearestShelterPoint(nearest);
+      await drawLineToShelter(clicked, nearest);
     }
 
-    function getGeometryType(name, fallback) {
-      if (!window.govmap || !govmap.geometryType) return fallback;
-      return govmap.geometryType[name] || fallback;
-    }
-
-    function drawClickedPoint(clicked) {
+    function drawClickedPoint(clicked, shouldClear) {
       return toPromise(govmap.displayGeometries({
         circleGeometries: [
           {
@@ -1673,14 +1646,15 @@
           }
         ],
         names: ["clicked_point"],
-        geometryType: getGeometryType("CIRCLE", govmap.geometryType.CIRCLE),
+        geometryType: govmap.geometryType.CIRCLE,
         defaultSymbol: {
           outlineColor: [34, 197, 94, 1],
           outlineWidth: 4,
           fillColor: [34, 197, 94, 0.35]
         },
         symbols: [],
-        clearExisting: true,
+        clearExisting: shouldClear,
+        clearExistings: shouldClear,
         showBubble: true,
         data: {
           tooltips: ["הנקודה שנבחרה"],
@@ -1702,11 +1676,11 @@
           {
             x: nearest.x,
             y: nearest.y,
-            radius: 75
+            radius: 80
           }
         ],
-        names: ["nearest_shelter_point"],
-        geometryType: getGeometryType("CIRCLE", govmap.geometryType.CIRCLE),
+        names: ["nearest_shelter"],
+        geometryType: govmap.geometryType.CIRCLE,
         defaultSymbol: {
           outlineColor: [239, 68, 68, 1],
           outlineWidth: 4,
@@ -1714,6 +1688,7 @@
         },
         symbols: [],
         clearExisting: false,
+        clearExistings: false,
         showBubble: true,
         data: {
           tooltips: [nearest.name],
@@ -1722,7 +1697,7 @@
             "<div style='direction:rtl;text-align:right;font-family:Arial;padding:8px'>" +
             "<b>" + escapeHtml(nearest.name) + "</b><br>" +
             "מרחק: " + formatDistance(nearest.distanceMeters) + "<br>" +
-            escapeHtml(nearest.address || "") +
+            "ObjectId: " + escapeHtml(nearest.objectId || "—") +
             "</div>",
           bubbleHTMLParameters: [[]]
         }
@@ -1738,13 +1713,14 @@
           ")"
         ],
         names: ["nearest_shelter_line"],
-        geometryType: getGeometryType("POLYLINE", govmap.geometryType.POLYLINE),
+        geometryType: govmap.geometryType.POLYLINE,
         defaultSymbol: {
           color: [239, 68, 68, 1],
           width: 5
         },
         symbols: [],
         clearExisting: false,
+        clearExistings: false,
         showBubble: true,
         data: {
           tooltips: ["מרחק אווירי למקלט הקרוב"],
@@ -1761,22 +1737,25 @@
     }
 
     function updateNearestResult(clicked, nearest, searchResult) {
-      const hasPoint = Number.isFinite(nearest.x) && Number.isFinite(nearest.y);
+      const hasXY = Number.isFinite(nearest.x) && Number.isFinite(nearest.y);
 
       document.getElementById("nearestResult").innerHTML =
         "<strong>המקלט הקרוב ביותר:</strong><br>" +
         escapeHtml(nearest.name) +
         "<div class='distanceBig'>" + formatDistance(nearest.distanceMeters) + "</div>" +
-        (nearest.address ? "<strong>כתובת:</strong><br>" + escapeHtml(nearest.address) + "<br><br>" : "") +
-        (nearest.description ? "<strong>תיאור:</strong><br>" + escapeHtml(nearest.description) + "<br><br>" : "") +
         "<strong>שכבה:</strong><br>" +
         escapeHtml(searchResult.layerName) + "<br><br>" +
         "<strong>רדיוס חיפוש:</strong><br>" +
         formatDistance(searchResult.radius) + "<br><br>" +
         "<strong>נקודת הלחיצה:</strong><br>" +
-        "X: " + Math.round(clicked.x) + " · Y: " + Math.round(clicked.y) +
-        (!hasPoint
-          ? "<div class='warning'>GOVMAP החזיר מרחק, אבל לא מצאתי X/Y של המקלט בתשובה, לכן לא צויר קו מדויק עד המקלט.</div>"
+        "X: " + Math.round(clicked.x) + " · Y: " + Math.round(clicked.y) + "<br><br>" +
+        "<strong>המקלט:</strong><br>" +
+        (hasXY
+          ? "X: " + Math.round(nearest.x) + " · Y: " + Math.round(nearest.y)
+          : "אין X/Y בתשובה") +
+        (nearest.objectId ? "<br><br><strong>ObjectId:</strong><br>" + escapeHtml(nearest.objectId) : "") +
+        (!hasXY
+          ? "<div class='warning'>נמצאה תוצאה, אבל בלי גיאומטריה. נסה לעבור לשכבה 417 או להגדיל רדיוס.</div>"
           : "");
     }
 
@@ -1804,13 +1783,14 @@
       tbody.innerHTML = "";
 
       const rows = (state.lastCandidates || []).filter(function (candidate) {
-        const haystack = [
+        const text = [
           candidate.name,
           candidate.address,
-          candidate.description
+          candidate.description,
+          candidate.objectId
         ].join(" ").toLowerCase();
 
-        return !search || haystack.includes(search);
+        return !search || text.includes(search);
       });
 
       if (!rows.length) {
@@ -1821,7 +1801,7 @@
         return;
       }
 
-      rows.forEach(function (candidate, visibleIndex) {
+      rows.forEach(function (candidate) {
         const realIndex = state.lastCandidates.indexOf(candidate);
         const hasXY = Number.isFinite(candidate.x) && Number.isFinite(candidate.y);
 
@@ -1830,13 +1810,11 @@
         tr.innerHTML =
           "<td>" +
             "<strong>" + escapeHtml(candidate.name) + "</strong>" +
-            (candidate.description ? "<br><span style='color:#94a3b8'>" + escapeHtml(candidate.description) + "</span>" : "") +
+            (candidate.address ? "<br><span style='color:#94a3b8'>" + escapeHtml(candidate.address) + "</span>" : "") +
           "</td>" +
           "<td dir='ltr'>" + formatDistance(candidate.distanceMeters) + "</td>" +
-          "<td>" + escapeHtml(candidate.address || "—") + "</td>" +
-          "<td>" +
-            "<button class='darkBtn' onclick='zoomToResult(" + realIndex + ")' " + (!hasXY ? "disabled" : "") + ">זום</button>" +
-          "</td>";
+          "<td>" + escapeHtml(candidate.objectId || "—") + "</td>" +
+          "<td><button class='darkBtn' onclick='zoomToResult(" + realIndex + ")' " + (!hasXY ? "disabled" : "") + ">זום</button></td>";
 
         tbody.appendChild(tr);
       });
@@ -1844,6 +1822,7 @@
 
     function focusFirstResult() {
       const rows = state.lastCandidates || [];
+
       if (!rows.length) {
         setStatus("אין תוצאות אחרונות לחיפוש.", true);
         return;
@@ -1851,18 +1830,19 @@
 
       const search = document.getElementById("mainSearch").value.trim().toLowerCase();
 
-      const found = rows.findIndex(function (candidate) {
+      const foundIndex = rows.findIndex(function (candidate) {
         const text = [
           candidate.name,
           candidate.address,
-          candidate.description
+          candidate.description,
+          candidate.objectId
         ].join(" ").toLowerCase();
 
         return !search || text.includes(search);
       });
 
-      if (found >= 0) {
-        zoomToResult(found);
+      if (foundIndex >= 0) {
+        zoomToResult(foundIndex);
       }
     }
 
@@ -1935,6 +1915,38 @@
       setStatus("תצוגת כל ישראל.");
     }
 
+    function resetGovMapTool() {
+      if (window.govmap && typeof govmap.setDefaultTool === "function") {
+        govmap.setDefaultTool();
+      }
+    }
+
+    function toPromise(result) {
+      return new Promise(function (resolve, reject) {
+        if (!result) {
+          resolve(result);
+          return;
+        }
+
+        if (typeof result.then === "function") {
+          result.then(resolve, reject);
+          return;
+        }
+
+        if (typeof result.done === "function") {
+          result.done(resolve);
+
+          if (typeof result.fail === "function") {
+            result.fail(reject);
+          }
+
+          return;
+        }
+
+        resolve(result);
+      });
+    }
+
     function formatDistance(meters) {
       if (!Number.isFinite(Number(meters))) return "—";
 
@@ -1960,7 +1972,7 @@
     }
 
     function escapeHtml(value) {
-      return String(value)
+      return String(value ?? "")
         .replaceAll("&", "&amp;")
         .replaceAll("<", "&lt;")
         .replaceAll(">", "&gt;")
