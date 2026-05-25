@@ -278,19 +278,12 @@
     }
 
     textarea {
-      min-height: 180px;
+      min-height: 220px;
       direction: ltr;
       text-align: left;
       resize: vertical;
       font-family: Consolas, monospace;
       font-size: 12px;
-    }
-
-    input:focus,
-    select:focus,
-    textarea:focus {
-      border-color: var(--blue);
-      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
     }
 
     button {
@@ -570,7 +563,7 @@
             </div>
 
             <div class="muted" style="margin-top:10px;">
-              הקוד מחפש בשכבת המקלטים עם גאומטריה, מחשב את המרחק לפי X/Y, ומצייר קו אדום עד המקלט הקרוב.
+              החיפוש נעשה מול שכבת המקלטים של GOVMAP. הקו מצויר רק לקואורדינטה אמיתית שנמצאת בתחום ישראל.
             </div>
           </div>
 
@@ -850,6 +843,10 @@
       return Number.isFinite(value) ? value : 3000;
     }
 
+    function unique(arr) {
+      return Array.from(new Set(arr.filter(Boolean)));
+    }
+
     function getLayerOrder() {
       return unique([getLayerName()].concat(LAYER_FALLBACKS));
     }
@@ -862,10 +859,6 @@
           .concat(RADIUS_FALLBACKS.filter(function (r) { return r > selected; }))
           .concat(RADIUS_FALLBACKS.filter(function (r) { return r < selected; }))
       );
-    }
-
-    function unique(arr) {
-      return Array.from(new Set(arr.filter(Boolean)));
     }
 
     function showShelterLayer() {
@@ -913,13 +906,8 @@
     function stopMeasureMode() {
       state.measuring = false;
       state.measureRequestId += 1;
-
       updateDashboard();
-
-      if (window.govmap && typeof govmap.setDefaultTool === "function") {
-        govmap.setDefaultTool();
-      }
-
+      resetGovMapTool();
       setStatus("מצב המדידה נעצר.");
     }
 
@@ -959,7 +947,7 @@
     }
 
     async function handleClickedPointResponse(response) {
-      const point = extractMapPoint(response);
+      const point = extractClickPoint(response);
 
       if (!point) {
         setStatus("לא הצלחתי לקרוא X/Y מהלחיצה.", true);
@@ -967,17 +955,19 @@
         return;
       }
 
-      const clicked = {
-        x: Number(point.x),
-        y: Number(point.y)
-      };
+      const clicked = { x: Number(point.x), y: Number(point.y) };
+
+      if (!isValidIsraelGridPoint(clicked)) {
+        setStatus("נקודת הלחיצה לא נראית כמו קואורדינטות ישראליות תקינות.", true);
+        print("Invalid clicked point", { clicked, response });
+        return;
+      }
 
       state.lastClickedPoint = clicked;
-
       document.getElementById("manualX").value = Math.round(clicked.x);
       document.getElementById("manualY").value = Math.round(clicked.y);
 
-      setStatus("מחפש מקלטים ומנסה לקבל גיאומטריה לציור קו...");
+      setStatus("מחפש מקלט קרוב...");
 
       try {
         const searchResult = await findNearestShelter(clicked);
@@ -1014,10 +1004,16 @@
           radius: searchResult.radius,
           nearest: searchResult.nearest,
           candidatesCount: searchResult.candidates.length,
-          rawResponse: searchResult.rawResponse
+          rawDataResponse: searchResult.rawDataResponse,
+          rawGeometryResponse: searchResult.rawGeometryResponse
         });
 
-        setStatus("נמצא מקלט קרוב וצויר קו אליו.");
+        if (searchResult.nearest.hasGeometry) {
+          setStatus("נמצא המקלט הקרוב וצויר קו אליו.");
+        } else {
+          setStatus("נמצא מקלט, אבל GOVMAP לא החזיר לו גיאומטריה לציור קו.", true);
+        }
+
         resetGovMapTool();
 
         if (state.measuring) {
@@ -1051,96 +1047,93 @@
       const layerOrder = getLayerOrder();
       const radiusOrder = getRadiusOrder();
 
-      let lastRawResponse = null;
-
-      for (const radius of radiusOrder) {
-        for (const layerName of layerOrder) {
-          const intersectResult = await queryIntersectFeatures(layerName, clicked, radius);
-          lastRawResponse = intersectResult.rawResponse;
-
-          if (intersectResult.candidates.length) {
-            return {
-              layerName,
-              radius,
-              nearest: intersectResult.candidates[0],
-              candidates: intersectResult.candidates,
-              rawResponse: intersectResult.rawResponse
-            };
-          }
-        }
-      }
+      let lastRawDataResponse = null;
+      let lastRawGeometryResponse = null;
 
       for (const radius of radiusOrder) {
         for (const layerName of layerOrder) {
           const dataResult = await queryGetLayerData(layerName, clicked, radius);
-          lastRawResponse = dataResult.rawResponse;
+          lastRawDataResponse = dataResult.rawResponse;
 
-          if (dataResult.candidates.length) {
+          if (!dataResult.candidates.length) {
+            continue;
+          }
+
+          const candidatesWithGeometry = [];
+
+          for (const candidate of dataResult.candidates.slice(0, 20)) {
+            let geometryPoint = candidate.point;
+
+            if (!geometryPoint && candidate.objectId) {
+              const geometryResult = await getGeometryByObjectId(layerName, candidate.objectId);
+              lastRawGeometryResponse = geometryResult.rawResponse;
+
+              if (geometryResult.point) {
+                geometryPoint = geometryResult.point;
+              }
+            }
+
+            if (geometryPoint && isValidIsraelGridPoint(geometryPoint)) {
+              candidate.x = geometryPoint.x;
+              candidate.y = geometryPoint.y;
+              candidate.hasGeometry = true;
+              candidate.distanceMeters = distanceMeters(clicked, geometryPoint);
+            } else {
+              candidate.hasGeometry = false;
+            }
+
+            candidatesWithGeometry.push(candidate);
+          }
+
+          const validGeometryCandidates = candidatesWithGeometry
+            .filter(function (candidate) {
+              return candidate.hasGeometry && Number.isFinite(candidate.distanceMeters);
+            })
+            .sort(function (a, b) {
+              return a.distanceMeters - b.distanceMeters;
+            });
+
+          if (validGeometryCandidates.length) {
             return {
               layerName,
               radius,
-              nearest: dataResult.candidates[0],
-              candidates: dataResult.candidates,
-              rawResponse: dataResult.rawResponse
+              nearest: validGeometryCandidates[0],
+              candidates: validGeometryCandidates,
+              rawDataResponse: dataResult.rawResponse,
+              rawGeometryResponse: lastRawGeometryResponse
             };
           }
+
+          const fallbackIntersect = await queryIntersectFeatures(layerName, clicked, radius);
+          lastRawGeometryResponse = fallbackIntersect.rawResponse;
+
+          if (fallbackIntersect.candidates.length) {
+            return {
+              layerName,
+              radius,
+              nearest: fallbackIntersect.candidates[0],
+              candidates: fallbackIntersect.candidates,
+              rawDataResponse: dataResult.rawResponse,
+              rawGeometryResponse: fallbackIntersect.rawResponse
+            };
+          }
+
+          return {
+            layerName,
+            radius,
+            nearest: candidatesWithGeometry[0],
+            candidates: candidatesWithGeometry,
+            rawDataResponse: dataResult.rawResponse,
+            rawGeometryResponse: lastRawGeometryResponse
+          };
         }
       }
 
       return {
         nearest: null,
         candidates: [],
-        rawResponse: lastRawResponse
-      };
-    }
-
-    async function queryIntersectFeatures(layerName, clicked, radius) {
-      const fieldsVariants = [
-        ["objectid"],
-        ["OBJECTID"],
-        ["objectid", "name", "shem", "address"],
-        []
-      ];
-
-      let lastResponse = null;
-
-      for (const fields of fieldsVariants) {
-        try {
-          const params = {
-            geometry: "POINT(" + clicked.x + " " + clicked.y + ")",
-            layerName: layerName,
-            fields: fields,
-            getShapes: true,
-            radius: radius
-          };
-
-          const response = await toPromise(govmap.intersectFeatures(params));
-          lastResponse = response;
-
-          const candidates = parseIntersectCandidates(response, clicked)
-            .filter(function (candidate) {
-              return Number.isFinite(candidate.x) &&
-                     Number.isFinite(candidate.y) &&
-                     candidate.distanceMeters > 0.5;
-            })
-            .sort(function (a, b) {
-              return a.distanceMeters - b.distanceMeters;
-            });
-
-          if (candidates.length) {
-            return {
-              candidates,
-              rawResponse: response
-            };
-          }
-        } catch (error) {
-          lastResponse = { error: normalizeError(error), layerName, radius, fields };
-        }
-      }
-
-      return {
-        candidates: [],
-        rawResponse: lastResponse
+        rawDataResponse: lastRawDataResponse,
+        rawGeometryResponse: lastRawGeometryResponse
       };
     }
 
@@ -1148,25 +1141,19 @@
       try {
         const response = await toPromise(govmap.getLayerData({
           LayerName: layerName,
-          Point: {
-            x: clicked.x,
-            y: clicked.y
-          },
+          Point: { x: clicked.x, y: clicked.y },
           Radius: radius
         }));
 
-        const candidates = parseLayerDataCandidates(response, clicked)
+        const candidates = parseGetLayerDataCandidates(response, clicked)
           .filter(function (candidate) {
-            return candidate.distanceMeters > 0.5;
+            return Number.isFinite(candidate.distanceMeters);
           })
           .sort(function (a, b) {
             return a.distanceMeters - b.distanceMeters;
           });
 
-        return {
-          candidates,
-          rawResponse: response
-        };
+        return { candidates, rawResponse: response };
       } catch (error) {
         return {
           candidates: [],
@@ -1175,52 +1162,101 @@
       }
     }
 
-    function parseIntersectCandidates(response, clicked) {
-      const items = getDataItems(response);
-      const candidates = [];
+    async function getGeometryByObjectId(layerName, objectId) {
+      if (!objectId) {
+        return { point: null, rawResponse: null };
+      }
 
-      items.forEach(function (item, index) {
-        const point = extractPoint(item);
+      const idText = String(objectId).trim();
+      const idNumber = Number(idText);
+      const isNumericId = Number.isFinite(idNumber);
 
-        if (!point) return;
+      const whereValues = isNumericId
+        ? [String(idNumber)]
+        : ["'" + idText.replaceAll("'", "''") + "'"];
 
-        const attrs = flattenAttributes(item);
-        const objectId = getObjectId(item, attrs);
-        const distance = distanceBetween(clicked, point);
+      const fieldNames = ["objectid", "OBJECTID", "ObjectId"];
+      let lastResponse = null;
 
-        candidates.push({
-          index,
-          source: "intersectFeatures",
-          objectId,
-          name: extractName(item, attrs, objectId, index),
-          address: extractAddress(attrs),
-          description: extractDescription(attrs),
-          x: point.x,
-          y: point.y,
-          distanceMeters: distance,
-          raw: item
-        });
-      });
+      for (const field of fieldNames) {
+        for (const value of whereValues) {
+          try {
+            const params = {
+              layerName: layerName,
+              fields: ["objectid"],
+              getShapes: true,
+              whereClause: "(" + field + " = " + value + ")"
+            };
 
-      return candidates;
+            const response = await toPromise(govmap.intersectFeatures(params));
+            lastResponse = response;
+
+            const items = getDataItems(response);
+
+            for (const item of items) {
+              const point = extractStrictGeometryPoint(item);
+              if (point && isValidIsraelGridPoint(point)) {
+                return { point, rawResponse: response };
+              }
+            }
+          } catch (error) {
+            lastResponse = {
+              error: normalizeError(error),
+              layerName,
+              objectId,
+              field
+            };
+          }
+        }
+      }
+
+      return { point: null, rawResponse: lastResponse };
     }
 
-    function parseLayerDataCandidates(response, clicked) {
+    async function queryIntersectFeatures(layerName, clicked, radius) {
+      try {
+        const response = await toPromise(govmap.intersectFeatures({
+          geometry: "POINT(" + clicked.x + " " + clicked.y + ")",
+          layerName: layerName,
+          fields: ["objectid"],
+          getShapes: true,
+          radius: radius
+        }));
+
+        const candidates = parseIntersectCandidates(response, clicked)
+          .filter(function (candidate) {
+            return candidate.hasGeometry && Number.isFinite(candidate.distanceMeters);
+          })
+          .sort(function (a, b) {
+            return a.distanceMeters - b.distanceMeters;
+          });
+
+        return { candidates, rawResponse: response };
+      } catch (error) {
+        return {
+          candidates: [],
+          rawResponse: { error: normalizeError(error), layerName, radius }
+        };
+      }
+    }
+
+    function parseGetLayerDataCandidates(response, clicked) {
       const items = getDataItems(response);
       const candidates = [];
 
       items.forEach(function (item, index) {
         const attrs = flattenAttributes(item);
         const objectId = getObjectId(item, attrs);
-        const point = extractPoint(item);
+        const distance = extractDistance(item, attrs);
+        const point = extractStrictGeometryPoint(item);
 
-        let distance = extractDistance(attrs);
+        let finalDistance = distance;
 
-        if (!Number.isFinite(distance) && point) {
-          distance = distanceBetween(clicked, point);
+        if (!Number.isFinite(finalDistance) && point) {
+          finalDistance = distanceMeters(clicked, point);
         }
 
-        if (!Number.isFinite(distance)) {
+        if (!Number.isFinite(finalDistance)) {
           return;
         }
 
@@ -1228,11 +1264,46 @@
           index,
           source: "getLayerData",
           objectId,
-          name: extractName(item, attrs, objectId, index),
+          name: extractName(attrs, objectId, index),
           address: extractAddress(attrs),
           description: extractDescription(attrs),
+          point,
           x: point ? point.x : null,
           y: point ? point.y : null,
+          hasGeometry: !!point,
+          distanceMeters: finalDistance,
+          raw: item
+        });
+      });
+
+      return candidates;
+    }
+
+    function parseIntersectCandidates(response, clicked) {
+      const items = getDataItems(response);
+      const candidates = [];
+
+      items.forEach(function (item, index) {
+        const point = extractStrictGeometryPoint(item);
+        if (!point || !isValidIsraelGridPoint(point)) {
+          return;
+        }
+
+        const attrs = flattenAttributes(item);
+        const objectId = getObjectId(item, attrs);
+        const distance = distanceMeters(clicked, point);
+
+        candidates.push({
+          index,
+          source: "intersectFeatures",
+          objectId,
+          name: extractName(attrs, objectId, index),
+          address: extractAddress(attrs),
+          description: extractDescription(attrs),
+          point,
+          x: point.x,
+          y: point.y,
+          hasGeometry: true,
           distanceMeters: distance,
           raw: item
         });
@@ -1243,38 +1314,34 @@
 
     function getDataItems(response) {
       if (!response) return [];
-
       if (Array.isArray(response)) return response;
 
       if (Array.isArray(response.data)) return response.data;
       if (response.data && Array.isArray(response.data.Data)) return response.data.Data;
-      if (response.layers && typeof response.layers === "object") {
-        return Object.keys(response.layers).flatMap(function (key) {
-          return Array.isArray(response.layers[key]) ? response.layers[key] : [];
-        });
-      }
 
       const arrays = [];
-      collectArrays(response, arrays, 0);
+      collectObjectArrays(response, arrays, 0);
 
       return arrays
         .sort(function (a, b) { return b.length - a.length; })
         .flat()
-        .filter(function (x) {
-          return x && typeof x === "object";
+        .filter(function (item) {
+          return item && typeof item === "object" && !Array.isArray(item);
         });
     }
 
-    function collectArrays(value, arrays, depth) {
+    function collectObjectArrays(value, arrays, depth) {
       if (!value || depth > 5) return;
 
       if (Array.isArray(value)) {
-        if (value.some(function (x) { return x && typeof x === "object"; })) {
+        if (value.some(function (item) {
+          return item && typeof item === "object" && !Array.isArray(item);
+        })) {
           arrays.push(value);
         }
 
         value.forEach(function (item) {
-          collectArrays(item, arrays, depth + 1);
+          collectObjectArrays(item, arrays, depth + 1);
         });
 
         return;
@@ -1283,7 +1350,7 @@
       if (typeof value !== "object") return;
 
       Object.keys(value).forEach(function (key) {
-        collectArrays(value[key], arrays, depth + 1);
+        collectObjectArrays(value[key], arrays, depth + 1);
       });
     }
 
@@ -1294,7 +1361,11 @@
       function add(key, value) {
         if (value === null || value === undefined) return;
 
-        if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+        if (
+          typeof value === "string" ||
+          typeof value === "number" ||
+          typeof value === "boolean"
+        ) {
           attrs.push({
             key: String(key),
             value: String(value)
@@ -1307,7 +1378,7 @@
 
         if (Array.isArray(value)) {
           value.forEach(function (item, i) {
-            if (item && typeof item === "object") {
+            if (item && typeof item === "object" && !Array.isArray(item)) {
               const key =
                 item.FieldName || item.fieldName ||
                 item.Name || item.name ||
@@ -1325,8 +1396,6 @@
                 null;
 
               if (val !== null && val !== undefined) add(key, val);
-            } else {
-              add("array_" + i, item);
             }
 
             walk(item, depth + 1);
@@ -1352,7 +1421,7 @@
     function getObjectId(item, attrs) {
       const direct =
         item.ObjectId ?? item.OBJECTID ?? item.objectid ??
-        item.id ?? item.ID ?? item.ObjectID;
+        item.ObjectID ?? item.id ?? item.ID;
 
       if (direct !== undefined && direct !== null && direct !== "") {
         return String(direct);
@@ -1368,13 +1437,14 @@
       return fromAttrs || "";
     }
 
-    function extractName(item, attrs, objectId, index) {
+    function extractName(attrs, objectId, index) {
       const name = findAttr(attrs, [
         "שם",
         "name",
         "shem",
         "title",
         "description",
+        "תיאור",
         "type",
         "סוג"
       ]);
@@ -1415,7 +1485,17 @@
       ]);
     }
 
-    function extractDistance(attrs) {
+    function extractDistance(item, attrs) {
+      const directKeys = Object.keys(item || {}).filter(function (key) {
+        const lower = key.toLowerCase();
+        return lower.includes("distance") || lower.includes("dist") || key.includes("מרחק");
+      });
+
+      for (const key of directKeys) {
+        const parsed = parseNumber(item[key]);
+        if (Number.isFinite(parsed)) return parsed;
+      }
+
       const value = findAttr(attrs, [
         "distance",
         "dist",
@@ -1460,155 +1540,187 @@
       return Number(cleaned);
     }
 
-    function extractPoint(value) {
-      const visited = new WeakSet();
-
-      function isNum(v) {
-        return Number.isFinite(Number(v));
-      }
-
-      function directPoint(obj) {
-        if (!obj || typeof obj !== "object") return null;
-
-        const x =
-          isNum(obj.x) ? Number(obj.x) :
-          isNum(obj.X) ? Number(obj.X) :
-          isNum(obj.lon) ? Number(obj.lon) :
-          isNum(obj.Lon) ? Number(obj.Lon) :
-          null;
-
-        const y =
-          isNum(obj.y) ? Number(obj.y) :
-          isNum(obj.Y) ? Number(obj.Y) :
-          isNum(obj.lat) ? Number(obj.lat) :
-          isNum(obj.Lat) ? Number(obj.Lat) :
-          null;
-
-        if (x !== null && y !== null) return { x, y };
-        return null;
-      }
-
-      function parseWkt(text) {
-        if (typeof text !== "string") return null;
-
-        const pointMatch = text.match(/POINT\s*\(\s*([\d.\-]+)\s+([\d.\-]+)\s*\)/i);
-
-        if (pointMatch) {
-          return {
-            x: Number(pointMatch[1]),
-            y: Number(pointMatch[2])
-          };
-        }
-
-        const pairMatches = Array.from(text.matchAll(/([\d.\-]+)\s+([\d.\-]+)/g));
-
-        if (pairMatches.length && /LINESTRING|POLYGON|MULTIPOINT|MULTIPOLYGON/i.test(text)) {
-          const points = pairMatches.map(function (m) {
-            return {
-              x: Number(m[1]),
-              y: Number(m[2])
-            };
-          }).filter(function (p) {
-            return Number.isFinite(p.x) && Number.isFinite(p.y);
-          });
-
-          return getCentroid(points);
-        }
-
-        return null;
-      }
-
-      function walk(v, depth) {
-        if (!v || depth > 8) return null;
-
-        if (typeof v === "string") {
-          return parseWkt(v);
-        }
-
-        if (Array.isArray(v)) {
-          if (v.length >= 2 && isNum(v[0]) && isNum(v[1])) {
-            return {
-              x: Number(v[0]),
-              y: Number(v[1])
-            };
-          }
-
-          for (const item of v) {
-            const found = walk(item, depth + 1);
-            if (found) return found;
-          }
-
-          return null;
-        }
-
-        if (typeof v !== "object") return null;
-        if (visited.has(v)) return null;
-        visited.add(v);
-
-        const direct = directPoint(v);
-        if (direct) return direct;
-
-        const priorityKeys = [
-          "shape",
-          "Shape",
-          "SHAPE",
-          "geometry",
-          "Geometry",
-          "geom",
-          "Geom",
-          "wkt",
-          "WKT",
-          "mapPoint",
-          "point",
-          "Point",
-          "location",
-          "Location"
-        ];
-
-        for (const key of priorityKeys) {
-          if (Object.prototype.hasOwnProperty.call(v, key)) {
-            const found = walk(v[key], depth + 1);
-            if (found) return found;
-          }
-        }
-
-        for (const key of Object.keys(v)) {
-          const found = walk(v[key], depth + 1);
-          if (found) return found;
-        }
-
-        return null;
-      }
-
-      return walk(value, 0);
-    }
-
-    function extractMapPoint(response) {
+    function extractClickPoint(response) {
       if (!response) return null;
 
-      if (response.mapPoint && isPoint(response.mapPoint)) return response.mapPoint;
-      if (response.data && response.data.mapPoint && isPoint(response.data.mapPoint)) return response.data.mapPoint;
+      if (response.mapPoint && isValidIsraelGridPoint(response.mapPoint)) {
+        return {
+          x: Number(response.mapPoint.x),
+          y: Number(response.mapPoint.y)
+        };
+      }
 
-      return extractPoint(response);
+      if (
+        response.data &&
+        response.data.mapPoint &&
+        isValidIsraelGridPoint(response.data.mapPoint)
+      ) {
+        return {
+          x: Number(response.data.mapPoint.x),
+          y: Number(response.data.mapPoint.y)
+        };
+      }
+
+      return extractStrictGeometryPoint(response);
     }
 
-    function isPoint(value) {
-      return (
-        value &&
-        Number.isFinite(Number(value.x)) &&
-        Number.isFinite(Number(value.y))
-      );
+    function extractStrictGeometryPoint(item) {
+      if (!item || typeof item !== "object") return null;
+
+      const direct = directXYPoint(item);
+      if (direct) return direct;
+
+      const geometryKeys = [
+        "Shape",
+        "shape",
+        "SHAPE",
+        "Geometry",
+        "geometry",
+        "GEOMETRY",
+        "Geom",
+        "geom",
+        "WKT",
+        "wkt",
+        "shapeWKT",
+        "ShapeWKT",
+        "geometryWKT",
+        "GeometryWKT"
+      ];
+
+      for (const key of geometryKeys) {
+        if (Object.prototype.hasOwnProperty.call(item, key)) {
+          const point = parseGeometryValue(item[key]);
+          if (point) return point;
+        }
+      }
+
+      if (Array.isArray(item.Values)) {
+        for (const value of item.Values) {
+          if (typeof value === "string" && looksLikeWkt(value)) {
+            const point = parseWkt(value);
+            if (point) return point;
+          }
+        }
+      }
+
+      const wktString = findAnyWktString(item, 0);
+      if (wktString) {
+        const point = parseWkt(wktString);
+        if (point) return point;
+      }
+
+      return null;
     }
 
-    function getCentroid(points) {
+    function directXYPoint(obj) {
+      if (!obj || typeof obj !== "object") return null;
+
+      const possibleX = obj.x ?? obj.X;
+      const possibleY = obj.y ?? obj.Y;
+
+      const point = {
+        x: Number(possibleX),
+        y: Number(possibleY)
+      };
+
+      return isValidIsraelGridPoint(point) ? point : null;
+    }
+
+    function parseGeometryValue(value) {
+      if (!value) return null;
+
+      if (typeof value === "string") {
+        return parseWkt(value);
+      }
+
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          const point = parseGeometryValue(item);
+          if (point) return point;
+        }
+        return null;
+      }
+
+      if (typeof value === "object") {
+        const direct = directXYPoint(value);
+        if (direct) return direct;
+
+        const keys = Object.keys(value);
+        for (const key of keys) {
+          const point = parseGeometryValue(value[key]);
+          if (point) return point;
+        }
+      }
+
+      return null;
+    }
+
+    function looksLikeWkt(text) {
+      return /POINT|MULTIPOINT|LINESTRING|POLYGON|MULTIPOLYGON/i.test(String(text));
+    }
+
+    function parseWkt(text) {
+      if (typeof text !== "string" || !looksLikeWkt(text)) return null;
+
+      const pointMatch = text.match(/POINT\s*\(\s*([\d.\-]+)\s+([\d.\-]+)\s*\)/i);
+
+      if (pointMatch) {
+        const point = {
+          x: Number(pointMatch[1]),
+          y: Number(pointMatch[2])
+        };
+
+        return isValidIsraelGridPoint(point) ? point : null;
+      }
+
+      const pairMatches = Array.from(text.matchAll(/([\d.\-]+)\s+([\d.\-]+)/g));
+
+      const points = pairMatches
+        .map(function (m) {
+          return {
+            x: Number(m[1]),
+            y: Number(m[2])
+          };
+        })
+        .filter(isValidIsraelGridPoint);
+
+      return centroid(points);
+    }
+
+    function findAnyWktString(value, depth) {
+      if (!value || depth > 5) return null;
+
+      if (typeof value === "string") {
+        return looksLikeWkt(value) ? value : null;
+      }
+
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          const found = findAnyWktString(item, depth + 1);
+          if (found) return found;
+        }
+        return null;
+      }
+
+      if (typeof value !== "object") return null;
+
+      for (const key of Object.keys(value)) {
+        const found = findAnyWktString(value[key], depth + 1);
+        if (found) return found;
+      }
+
+      return null;
+    }
+
+    function centroid(points) {
       if (!points || !points.length) return null;
 
       let sx = 0;
       let sy = 0;
 
       points.forEach(function (p) {
-        sx += Number(p.x);
-        sy += Number(p.y);
+        sx += p.x;
+        sy += p.y;
       });
 
       return {
@@ -1617,21 +1729,34 @@
       };
     }
 
-    function distanceBetween(a, b) {
-      const dx = Number(b.x) - Number(a.x);
-      const dy = Number(b.y) - Number(a.y);
+    function isValidIsraelGridPoint(point) {
+      const x = Number(point && point.x);
+      const y = Number(point && point.y);
 
-      return Math.sqrt(dx * dx + dy * dy);
+      return (
+        Number.isFinite(x) &&
+        Number.isFinite(y) &&
+        x >= 50000 &&
+        x <= 350000 &&
+        y >= 350000 &&
+        y <= 850000
+      );
+    }
+
+    function distanceMeters(p1, p2) {
+      return Math.hypot(
+        Number(p2.x) - Number(p1.x),
+        Number(p2.y) - Number(p1.y)
+      );
     }
 
     async function drawResult(clicked, nearest) {
-      if (!Number.isFinite(nearest.x) || !Number.isFinite(nearest.y)) {
-        setStatus("נמצא מקלט, אבל אין לו X/Y ולכן אי אפשר לצייר קו.", true);
-        await drawClickedPoint(clicked, true);
+      await drawClickedPoint(clicked, true);
+
+      if (!nearest.hasGeometry || !isValidIsraelGridPoint(nearest)) {
         return;
       }
 
-      await drawClickedPoint(clicked, true);
       await drawNearestShelterPoint(nearest);
       await drawLineToShelter(clicked, nearest);
     }
@@ -1654,7 +1779,6 @@
         },
         symbols: [],
         clearExisting: shouldClear,
-        clearExistings: shouldClear,
         showBubble: true,
         data: {
           tooltips: ["הנקודה שנבחרה"],
@@ -1688,7 +1812,6 @@
         },
         symbols: [],
         clearExisting: false,
-        clearExistings: false,
         showBubble: true,
         data: {
           tooltips: [nearest.name],
@@ -1720,7 +1843,6 @@
         },
         symbols: [],
         clearExisting: false,
-        clearExistings: false,
         showBubble: true,
         data: {
           tooltips: ["מרחק אווירי למקלט הקרוב"],
@@ -1737,7 +1859,7 @@
     }
 
     function updateNearestResult(clicked, nearest, searchResult) {
-      const hasXY = Number.isFinite(nearest.x) && Number.isFinite(nearest.y);
+      const hasLine = nearest.hasGeometry && isValidIsraelGridPoint(nearest);
 
       document.getElementById("nearestResult").innerHTML =
         "<strong>המקלט הקרוב ביותר:</strong><br>" +
@@ -1750,12 +1872,12 @@
         "<strong>נקודת הלחיצה:</strong><br>" +
         "X: " + Math.round(clicked.x) + " · Y: " + Math.round(clicked.y) + "<br><br>" +
         "<strong>המקלט:</strong><br>" +
-        (hasXY
+        (hasLine
           ? "X: " + Math.round(nearest.x) + " · Y: " + Math.round(nearest.y)
-          : "אין X/Y בתשובה") +
+          : "GOVMAP לא החזיר X/Y תקין למקלט הזה") +
         (nearest.objectId ? "<br><br><strong>ObjectId:</strong><br>" + escapeHtml(nearest.objectId) : "") +
-        (!hasXY
-          ? "<div class='warning'>נמצאה תוצאה, אבל בלי גיאומטריה. נסה לעבור לשכבה 417 או להגדיל רדיוס.</div>"
+        (!hasLine
+          ? "<div class='warning'>נמצא מקלט, אבל לא התקבלה גיאומטריה תקינה ולכן לא צויר קו. פתח Debug ובדוק אם יש Shape/WKT בתשובה.</div>"
           : "");
     }
 
@@ -1803,7 +1925,7 @@
 
       rows.forEach(function (candidate) {
         const realIndex = state.lastCandidates.indexOf(candidate);
-        const hasXY = Number.isFinite(candidate.x) && Number.isFinite(candidate.y);
+        const hasXY = candidate.hasGeometry && isValidIsraelGridPoint(candidate);
 
         const tr = document.createElement("tr");
 
@@ -1851,8 +1973,8 @@
 
       const candidate = state.lastCandidates[index];
 
-      if (!candidate || !Number.isFinite(candidate.x) || !Number.isFinite(candidate.y)) {
-        setStatus("אין X/Y לתוצאה הזאת.", true);
+      if (!candidate || !candidate.hasGeometry || !isValidIsraelGridPoint(candidate)) {
+        setStatus("אין X/Y תקין לתוצאה הזאת.", true);
         return;
       }
 
