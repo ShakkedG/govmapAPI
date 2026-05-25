@@ -25,7 +25,6 @@
       --green: #22c55e;
       --red: #ef4444;
       --yellow: #facc15;
-      --orange: #fb923c;
       --shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
       --radius: 18px;
     }
@@ -468,7 +467,7 @@
       left: 16px;
       top: 92px;
       z-index: 18;
-      max-width: 420px;
+      max-width: 440px;
       border-radius: 18px;
       padding: 12px 14px;
       color: var(--text);
@@ -563,7 +562,7 @@
             </div>
 
             <div class="muted" style="margin-top:10px;">
-              אם תלחץ במקום מבודד, האתר ירחיב את הרדיוס אוטומטית עד שימצא מקלט עם קואורדינטות תקינות.
+              במקום לשלוח ל־GOVMAP רדיוס ענק, האתר מחפש בטבעות של 3 ק״מ ומחשב לבד את המקלט הקרוב באמת.
             </div>
           </div>
 
@@ -582,7 +581,7 @@
               </div>
 
               <div class="statCard">
-                <div class="statLabel">רדיוס שנמצא</div>
+                <div class="statLabel">טבעת שבה נמצא</div>
                 <div class="statValue yellow" id="lastRadius">—</div>
               </div>
 
@@ -611,17 +610,14 @@
               <button class="pill" onclick="setLayerName('417')">417</button>
             </div>
 
-            <label for="radiusSelect">רדיוס התחלה</label>
-            <select id="radiusSelect">
-              <option value="250">250 מטר</option>
-              <option value="500">500 מטר</option>
-              <option value="1000">1 ק״מ</option>
-              <option value="2000">2 ק״מ</option>
-              <option value="3000" selected>3 ק״מ</option>
-              <option value="5000">5 ק״מ</option>
+            <label for="maxDistanceSelect">מרחק חיפוש מקסימלי</label>
+            <select id="maxDistanceSelect">
               <option value="10000">10 ק״מ</option>
               <option value="20000">20 ק״מ</option>
-              <option value="50000">50 ק״מ</option>
+              <option value="50000" selected>50 ק״מ</option>
+              <option value="100000">100 ק״מ</option>
+              <option value="200000">200 ק״מ</option>
+              <option value="500000">500 ק״מ</option>
             </select>
 
             <div class="row">
@@ -714,20 +710,24 @@
     const DEFAULT_LAYER_NAME = "BOMBSHELTERS";
     const LAYER_FALLBACKS = ["BOMBSHELTERS", "417"];
 
-    const RADIUS_FALLBACKS = [
-      250,
-      500,
-      1000,
-      2000,
-      3000,
+    const GOVMAP_MAX_SAFE_RADIUS = 3000;
+
+    const RING_RADII = [
+      0,
+      2500,
       5000,
+      7500,
       10000,
+      15000,
       20000,
+      30000,
       50000,
+      75000,
       100000,
+      150000,
       200000,
-      500000,
-      1000000
+      300000,
+      500000
     ];
 
     const state = {
@@ -738,7 +738,8 @@
       lastNearest: null,
       lastCandidates: [],
       lastRadius: null,
-      lastLayerUsed: DEFAULT_LAYER_NAME
+      lastLayerUsed: DEFAULT_LAYER_NAME,
+      requestsCounter: 0
     };
 
     function initGovMap() {
@@ -855,9 +856,9 @@
       setStatus("נבחרה שכבה: " + name);
     }
 
-    function getSelectedRadius() {
-      const value = Number(document.getElementById("radiusSelect").value);
-      return Number.isFinite(value) ? value : 3000;
+    function getMaxDistance() {
+      const value = Number(document.getElementById("maxDistanceSelect").value);
+      return Number.isFinite(value) ? value : 50000;
     }
 
     function unique(arr) {
@@ -866,16 +867,6 @@
 
     function getLayerOrder() {
       return unique([getLayerName()].concat(LAYER_FALLBACKS));
-    }
-
-    function getRadiusOrder() {
-      const selected = getSelectedRadius();
-
-      return unique(
-        [selected]
-          .concat(RADIUS_FALLBACKS.filter(function (r) { return r > selected; }))
-          .concat(RADIUS_FALLBACKS.filter(function (r) { return r < selected; }))
-      );
     }
 
     function showShelterLayer() {
@@ -981,10 +972,12 @@
       }
 
       state.lastClickedPoint = clicked;
+      state.requestsCounter = 0;
+
       document.getElementById("manualX").value = Math.round(clicked.x);
       document.getElementById("manualY").value = Math.round(clicked.y);
 
-      setStatus("מחפש מקלט קרוב...");
+      setStatus("מחפש מקלט קרוב בטבעות של 3 ק״מ...");
 
       try {
         const searchResult = await findNearestShelter(clicked);
@@ -996,7 +989,7 @@
           renderResultsTable();
 
           document.getElementById("nearestResult").innerHTML =
-            "לא נמצאו מקלטים ברדיוסי החיפוש שנבדקו.";
+            "לא נמצאו מקלטים בטווח החיפוש שנבדק.";
 
           setStatus("לא נמצאו מקלטים סביב הנקודה.", true);
           print("No shelter found", { clicked, searchResult });
@@ -1018,7 +1011,8 @@
         print("Nearest shelter result", {
           clicked,
           layerName: searchResult.layerName,
-          radius: searchResult.radius,
+          searchRadius: searchResult.radius,
+          requestsSent: state.requestsCounter,
           nearest: searchResult.nearest,
           candidatesCount: searchResult.candidates.length,
           rawResponse: searchResult.rawResponse
@@ -1056,27 +1050,109 @@
 
     async function findNearestShelter(clicked) {
       const layerOrder = getLayerOrder();
-      const radiusOrder = getRadiusOrder();
+      const maxDistance = getMaxDistance();
+      const ringGroups = buildSearchRingGroups(clicked, maxDistance);
 
+      let allCandidates = [];
       let lastRawResponse = null;
+      let bestLayerName = getLayerName();
 
-      for (const radius of radiusOrder) {
-        for (const layerName of layerOrder) {
-          setStatus("מחפש מקלטים ברדיוס " + formatDistance(radius) + "...");
+      for (let ringIndex = 0; ringIndex < ringGroups.length; ringIndex++) {
+        const group = ringGroups[ringIndex];
 
-          const geometryResult = await queryIntersectFeatures(layerName, clicked, radius);
-          lastRawResponse = geometryResult.rawResponse;
+        setStatus(
+          "מחפש בטבעת " +
+          formatDistance(group.ringRadius) +
+          " / עד " +
+          formatDistance(maxDistance) +
+          "..."
+        );
 
-          if (geometryResult.candidates.length) {
+        for (const center of group.centers) {
+          for (const layerName of layerOrder) {
+            const result = await queryIntersectFeatures(layerName, center, GOVMAP_MAX_SAFE_RADIUS);
+            lastRawResponse = result.rawResponse;
+
+            if (result.candidates.length) {
+              result.candidates.forEach(function (candidate) {
+                candidate.distanceMeters = distanceMeters(clicked, candidate);
+                candidate.searchCenter = {
+                  x: center.x,
+                  y: center.y,
+                  ringRadius: group.ringRadius
+                };
+              });
+
+              allCandidates = allCandidates.concat(result.candidates);
+              bestLayerName = layerName;
+            }
+          }
+        }
+
+        let sorted = dedupeCandidates(allCandidates)
+          .filter(function (candidate) {
+            return (
+              isValidIsraelGridPoint(candidate) &&
+              Number.isFinite(candidate.distanceMeters)
+            );
+          })
+          .sort(function (a, b) {
+            return a.distanceMeters - b.distanceMeters;
+          });
+
+        if (sorted.length) {
+          const nearest = sorted[0];
+
+          /*
+            אם כבר חיפשנו בטבעת רחוקה, וכל טבעת עתידית לא יכולה להכיל משהו קרוב יותר
+            מהמקלט שכבר מצאנו, אפשר לעצור.
+          */
+          const nextRing = ringGroups[ringIndex + 1];
+
+          if (!nextRing || nearest.distanceMeters <= Math.max(0, nextRing.ringRadius - GOVMAP_MAX_SAFE_RADIUS)) {
             return {
-              layerName,
-              radius,
-              nearest: geometryResult.candidates[0],
-              candidates: geometryResult.candidates,
-              rawResponse: geometryResult.rawResponse
+              layerName: bestLayerName,
+              radius: Math.max(group.ringRadius, nearest.distanceMeters),
+              nearest,
+              candidates: sorted,
+              rawResponse: lastRawResponse
+            };
+          }
+
+          /*
+            אם מצאנו מקלט בתוך החיפוש המרכזי של 3 ק״מ, הוא בהכרח הקרוב ביותר.
+          */
+          if (group.ringRadius === 0 && nearest.distanceMeters <= GOVMAP_MAX_SAFE_RADIUS) {
+            return {
+              layerName: bestLayerName,
+              radius: GOVMAP_MAX_SAFE_RADIUS,
+              nearest,
+              candidates: sorted,
+              rawResponse: lastRawResponse
             };
           }
         }
+      }
+
+      const finalSorted = dedupeCandidates(allCandidates)
+        .filter(function (candidate) {
+          return (
+            isValidIsraelGridPoint(candidate) &&
+            Number.isFinite(candidate.distanceMeters)
+          );
+        })
+        .sort(function (a, b) {
+          return a.distanceMeters - b.distanceMeters;
+        });
+
+      if (finalSorted.length) {
+        return {
+          layerName: bestLayerName,
+          radius: finalSorted[0].distanceMeters,
+          nearest: finalSorted[0],
+          candidates: finalSorted,
+          rawResponse: lastRawResponse
+        };
       }
 
       return {
@@ -1086,24 +1162,99 @@
       };
     }
 
-    async function queryIntersectFeatures(layerName, clicked, radius) {
+    function buildSearchRingGroups(clicked, maxDistance) {
+      const validRings = RING_RADII.filter(function (r) {
+        return r <= maxDistance;
+      });
+
+      if (!validRings.includes(maxDistance)) {
+        validRings.push(maxDistance);
+      }
+
+      return validRings.map(function (ringRadius) {
+        return {
+          ringRadius,
+          centers: buildCentersForRing(clicked, ringRadius)
+        };
+      });
+    }
+
+    function buildCentersForRing(clicked, ringRadius) {
+      if (ringRadius === 0) {
+        return [
+          {
+            x: clicked.x,
+            y: clicked.y,
+            ringRadius
+          }
+        ];
+      }
+
+      const circumference = 2 * Math.PI * ringRadius;
+
+      /*
+        ככל שהטבעת רחוקה יותר, צריך יותר נקודות בדיקה כדי שלא יהיו חורים.
+        cap של 96 כדי שהאתר לא יתקע.
+      */
+      const steps = Math.min(
+        96,
+        Math.max(8, Math.ceil(circumference / (GOVMAP_MAX_SAFE_RADIUS * 1.35)))
+      );
+
+      const centers = [];
+
+      for (let i = 0; i < steps; i++) {
+        const angle = (Math.PI * 2 * i) / steps;
+
+        const p = {
+          x: clicked.x + Math.cos(angle) * ringRadius,
+          y: clicked.y + Math.sin(angle) * ringRadius,
+          ringRadius
+        };
+
+        if (isValidIsraelGridPoint(p)) {
+          centers.push(p);
+        }
+      }
+
+      return centers;
+    }
+
+    function dedupeCandidates(candidates) {
+      const seen = new Set();
+
+      return candidates.filter(function (candidate) {
+        const key =
+          candidate.objectId ||
+          Math.round(candidate.x) + "," + Math.round(candidate.y);
+
+        if (seen.has(key)) return false;
+
+        seen.add(key);
+        return true;
+      });
+    }
+
+    async function queryIntersectFeatures(layerName, center, radius) {
+      state.requestsCounter += 1;
+
       const requestVariants = [
         {
-          geometry: "POINT(" + clicked.x + " " + clicked.y + ")",
+          geometry: "POINT(" + center.x + " " + center.y + ")",
           layerName: layerName,
           fields: ["objectid"],
           getShapes: true,
           radius: radius
         },
         {
-          geometry: "POINT(" + clicked.x + " " + clicked.y + ")",
+          geometry: "POINT(" + center.x + " " + center.y + ")",
           layerName: layerName,
           fields: ["objectid", "name", "shem", "address"],
           getShapes: true,
           radius: radius
         },
         {
-          geometry: "POINT(" + clicked.x + " " + clicked.y + ")",
+          geometry: "POINT(" + center.x + " " + center.y + ")",
           layerName: layerName,
           fields: [],
           getShapes: true,
@@ -1118,7 +1269,7 @@
           const response = await toPromise(govmap.intersectFeatures(params));
           lastResponse = response;
 
-          const candidates = parseIntersectCandidates(response, clicked)
+          const candidates = parseIntersectCandidates(response, center)
             .filter(function (candidate) {
               return (
                 candidate.hasGeometry &&
@@ -1152,7 +1303,7 @@
       };
     }
 
-    function parseIntersectCandidates(response, clicked) {
+    function parseIntersectCandidates(response, searchCenter) {
       const items = getDataItems(response);
       const candidates = [];
 
@@ -1165,7 +1316,7 @@
 
         const attrs = flattenAttributes(item);
         const objectId = getObjectId(item, attrs);
-        const distance = distanceMeters(clicked, point);
+        const distanceFromSearchCenter = distanceMeters(searchCenter, point);
 
         candidates.push({
           index,
@@ -1177,7 +1328,8 @@
           x: point.x,
           y: point.y,
           hasGeometry: true,
-          distanceMeters: distance,
+          distanceFromSearchCenter,
+          distanceMeters: distanceFromSearchCenter,
           raw: item
         });
       });
@@ -1204,7 +1356,7 @@
     }
 
     function collectObjectArrays(value, arrays, depth) {
-      if (!value || depth > 5) return;
+      if (!value || depth > 6) return;
 
       if (Array.isArray(value)) {
         if (value.some(function (item) {
@@ -1702,7 +1854,7 @@
         "<div class='distanceBig'>" + formatDistance(nearest.distanceMeters) + "</div>" +
         "<strong>שכבה:</strong><br>" +
         escapeHtml(searchResult.layerName) + "<br><br>" +
-        "<strong>רדיוס שבו נמצא:</strong><br>" +
+        "<strong>טווח שבו נמצא:</strong><br>" +
         formatDistance(searchResult.radius) + "<br><br>" +
         "<strong>נקודת הלחיצה:</strong><br>" +
         "X: " + Math.round(clicked.x) + " · Y: " + Math.round(clicked.y) + "<br><br>" +
