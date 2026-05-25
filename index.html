@@ -4,15 +4,42 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <title>GovMap Project</title>
+  <title>GOVMAP Project</title>
+
+  <script>
+    window.__govmapScriptError = function () {
+      const status = document.getElementById("statusText");
+      if (status) {
+        status.textContent = "שגיאה: הסקריפט של GOVMAP לא נטען.";
+      }
+    };
+  </script>
 
   <script
     src="https://www.govmap.gov.il/govmap/api/govmap.api.js"
     defer
-    onload="initGovMap()">
+    onload="initGovMap()"
+    onerror="window.__govmapScriptError()">
   </script>
 
   <style>
+    :root {
+      --bg: #0f172a;
+      --panel: rgba(255, 255, 255, 0.94);
+      --panel-solid: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --primary: #111827;
+      --primary-soft: #374151;
+      --danger: #b91c1c;
+      --ok: #047857;
+      --ok-bg: #ecfdf5;
+      --warn-bg: #fff7ed;
+      --shadow: 0 18px 45px rgba(15, 23, 42, 0.22);
+      --radius: 18px;
+    }
+
     * {
       box-sizing: border-box;
     }
@@ -22,264 +49,700 @@
       margin: 0;
       width: 100%;
       height: 100%;
-      font-family: Arial, sans-serif;
-      background: #f3f4f6;
+      overflow: hidden;
+      font-family: Arial, "Noto Sans Hebrew", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    #map {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #111827;
+    }
+
+    .panel {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      bottom: 18px;
+      width: 390px;
+      max-width: calc(100vw - 36px);
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(229, 231, 235, 0.9);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
       overflow: hidden;
     }
 
-    .app {
-      display: grid;
-      grid-template-columns: 340px 1fr;
-      width: 100vw;
-      height: 100vh;
+    .panelHeader {
+      padding: 18px 18px 12px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.7);
     }
 
-    .sidebar {
+    .topLine {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .brandTitle {
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: -0.4px;
+    }
+
+    .brandSub {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .toggleBtn {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
       background: white;
-      padding: 18px;
-      border-left: 1px solid #ddd;
-      box-shadow: -3px 0 15px rgba(0, 0, 0, 0.08);
-      overflow-y: auto;
-      z-index: 10;
+      color: var(--text);
+      cursor: pointer;
+      font-size: 20px;
+      font-weight: 900;
     }
 
-    h1 {
-      margin: 0 0 8px;
-      font-size: 24px;
+    .statusPill {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: var(--ok-bg);
+      color: var(--ok);
+      border: 1px solid #bbf7d0;
+      font-size: 13px;
+      line-height: 1.45;
     }
 
-    p {
-      color: #555;
-      line-height: 1.5;
-      font-size: 14px;
+    .panelBody {
+      padding: 14px;
+      overflow: auto;
     }
 
     .card {
-      margin-top: 16px;
+      background: var(--panel-solid);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
       padding: 14px;
-      border-radius: 14px;
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
+      margin-bottom: 12px;
+      box-shadow: 0 5px 18px rgba(15, 23, 42, 0.06);
+    }
+
+    .cardTitle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .smallText {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-top: 8px;
     }
 
     label {
       display: block;
-      font-weight: bold;
-      font-size: 13px;
-      margin-bottom: 6px;
+      font-size: 12px;
+      font-weight: 800;
+      margin: 9px 0 6px;
     }
 
     input,
-    button {
+    select,
+    button,
+    textarea {
+      font-family: inherit;
+    }
+
+    input,
+    select {
       width: 100%;
-      padding: 10px;
-      border-radius: 10px;
+      height: 40px;
       border: 1px solid #d1d5db;
+      border-radius: 13px;
+      padding: 0 12px;
       font-size: 14px;
-      margin-bottom: 8px;
+      outline: none;
+      background: white;
+      color: var(--text);
+    }
+
+    input:focus,
+    select:focus {
+      border-color: #111827;
+      box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.12);
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .row3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
     }
 
     button {
-      background: #111827;
-      color: white;
-      font-weight: bold;
-      cursor: pointer;
+      width: 100%;
+      min-height: 40px;
       border: none;
+      border-radius: 13px;
+      padding: 9px 12px;
+      background: var(--primary);
+      color: white;
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 13px;
+      transition: transform 0.08s ease, opacity 0.2s ease, background 0.2s ease;
+    }
+
+    button:hover {
+      opacity: 0.92;
+    }
+
+    button:active {
+      transform: scale(0.99);
     }
 
     button.secondary {
-      background: #374151;
+      background: var(--primary-soft);
+    }
+
+    button.light {
+      background: #f3f4f6;
+      color: var(--text);
+      border: 1px solid var(--border);
     }
 
     button.danger {
-      background: #991b1b;
+      background: var(--danger);
     }
 
-    #map {
-      width: 100%;
-      height: 100%;
+    button.ok {
+      background: var(--ok);
     }
 
-    #status {
-      padding: 10px;
-      border-radius: 10px;
-      background: #ecfdf5;
-      color: #065f46;
-      font-size: 13px;
-      line-height: 1.5;
+    .btnGrid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
     }
 
-    #output {
-      direction: ltr;
-      text-align: left;
-      white-space: pre-wrap;
-      background: #111827;
-      color: #d1fae5;
-      padding: 10px;
-      border-radius: 10px;
-      min-height: 120px;
-      max-height: 260px;
-      overflow: auto;
+    .chipGrid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 8px;
+    }
+
+    .chip {
+      width: auto;
+      min-height: 32px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: #f3f4f6;
+      color: #111827;
+      border: 1px solid #e5e7eb;
       font-size: 12px;
     }
 
+    .activeLayers {
+      min-height: 34px;
+      padding: 8px;
+      border-radius: 12px;
+      background: #f9fafb;
+      border: 1px dashed #d1d5db;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-top: 8px;
+      direction: ltr;
+      text-align: left;
+    }
+
+    .debugBox {
+      direction: ltr;
+      text-align: left;
+      white-space: pre-wrap;
+      background: #0b1220;
+      color: #d1fae5;
+      border-radius: 16px;
+      padding: 12px;
+      min-height: 150px;
+      max-height: 280px;
+      overflow: auto;
+      font-size: 12px;
+      line-height: 1.45;
+      border: 1px solid #1f2937;
+    }
+
+    .floatingBar {
+      position: fixed;
+      left: 18px;
+      top: 18px;
+      z-index: 18;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .floatingBar button {
+      width: auto;
+      min-width: 44px;
+      background: rgba(255, 255, 255, 0.92);
+      color: #111827;
+      border: 1px solid rgba(229, 231, 235, 0.9);
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
+    }
+
+    .miniBadge {
+      background: rgba(17, 24, 39, 0.9);
+      color: white;
+      border-radius: 999px;
+      padding: 10px 12px;
+      font-size: 12px;
+      font-weight: 800;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
+    }
+
+    .panel.collapsed {
+      height: auto;
+      bottom: auto;
+      width: 310px;
+    }
+
+    .panel.collapsed .panelBody {
+      display: none;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
     @media (max-width: 850px) {
-      .app {
-        grid-template-columns: 1fr;
-        grid-template-rows: 330px 1fr;
+      .panel {
+        top: auto;
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        width: auto;
+        max-height: 78vh;
       }
 
-      .sidebar {
-        border-left: none;
-        border-bottom: 1px solid #ddd;
+      .floatingBar {
+        top: 10px;
+        left: 10px;
+      }
+
+      .brandTitle {
+        font-size: 19px;
       }
     }
   </style>
 </head>
 
 <body>
-  <div class="app">
-    <aside class="sidebar">
-      <h1>אתר GOVMAP</h1>
+  <div id="map"></div>
 
-      <p>
-        זה פרויקט חדש עם קובץ אחד בלבד.
-        המפה נטענת ישירות דרך GOVMAP API.
-      </p>
-
-      <div class="card">
-        <strong>סטטוס</strong>
-        <div id="status">טוען מפה...</div>
-      </div>
-
-      <div class="card">
-        <label for="layerName">שם שכבה, אם יש לך</label>
-        <input id="layerName" placeholder="לדוגמה: PARCEL_ALL או שם שכבת משתמש" />
-
-        <button onclick="turnLayerOn()">הדלק שכבה</button>
-        <button class="secondary" onclick="turnLayerOff()">כבה שכבה</button>
-      </div>
-
-      <div class="card">
-        <button onclick="getMapCenter()">קבל מרכז מפה</button>
-        <button onclick="getMapUrl()">קבל קישור למפה</button>
-        <button onclick="choosePoint()">בחר נקודה במפה</button>
-        <button class="danger" onclick="clearOutput()">נקה פלט</button>
-      </div>
-
-      <div class="card">
-        <strong>פלט בדיקה</strong>
-        <pre id="output">אין פלט עדיין.</pre>
-      </div>
-    </aside>
-
-    <main>
-      <div id="map"></div>
-    </main>
+  <div class="floatingBar">
+    <button onclick="togglePanel()" title="פתח/סגור פאנל">☰</button>
+    <button onclick="quickZoom('israel')" title="כל ישראל">ישראל</button>
+    <span class="miniBadge" id="miniStatus">טוען GOVMAP...</span>
   </div>
 
+  <aside class="panel" id="panel">
+    <div class="panelHeader">
+      <div class="topLine">
+        <div class="brand">
+          <div class="brandTitle">אתר GOVMAP</div>
+          <div class="brandSub">קובץ יחיד: index.html · מתאים ל־GitHub Pages</div>
+        </div>
+
+        <button class="toggleBtn" onclick="togglePanel()" title="פתח/סגור">×</button>
+      </div>
+
+      <div class="statusPill" id="statusText">טוען מפה...</div>
+    </div>
+
+    <div class="panelBody">
+      <section class="card">
+        <div class="cardTitle">חיפוש כתובת</div>
+
+        <label for="addressInput">כתובת / מקום</label>
+        <input id="addressInput" value="אשדוד" placeholder="לדוגמה: רוטשילד 1 תל אביב" />
+
+        <div class="btnGrid">
+          <button onclick="searchAddress()">חפש וזום</button>
+          <button class="light" onclick="clearSearch()">נקה</button>
+        </div>
+
+        <div class="chipGrid">
+          <button class="chip" onclick="quickZoom('ashdod')">אשדוד</button>
+          <button class="chip" onclick="quickZoom('telaviv')">תל אביב</button>
+          <button class="chip" onclick="quickZoom('jerusalem')">ירושלים</button>
+          <button class="chip" onclick="quickZoom('haifa')">חיפה</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="cardTitle">מעבר לפי קואורדינטות</div>
+
+        <div class="row3">
+          <div>
+            <label for="xInput">X</label>
+            <input id="xInput" value="166000" />
+          </div>
+
+          <div>
+            <label for="yInput">Y</label>
+            <input id="yInput" value="633000" />
+          </div>
+
+          <div>
+            <label for="levelInput">זום</label>
+            <input id="levelInput" value="7" />
+          </div>
+        </div>
+
+        <div class="btnGrid">
+          <button onclick="zoomToManualXY()">עבור לנקודה</button>
+          <button class="secondary" onclick="choosePoint()">בחר נקודה במפה</button>
+        </div>
+
+        <div class="btnGrid">
+          <button class="light" onclick="getCenter()">קבל מרכז מפה</button>
+          <button class="light" onclick="identifyAtPoint()">זהה מידע בנקודה</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="cardTitle">רקע המפה</div>
+
+        <label for="backgroundSelect">בחר רקע</label>
+        <select id="backgroundSelect">
+          <option value="1" selected>תצלום אוויר</option>
+          <option value="0">רחובות ומבנים</option>
+          <option value="2">משולב</option>
+          <option value="3">CIR</option>
+          <option value="9">מפה טופוגרפית</option>
+          <option value="11">ללא רקע</option>
+          <option value="42">תצלום אוויר 2023</option>
+          <option value="43">תצלום אוויר 2022</option>
+          <option value="41">תצלום אוויר 2021</option>
+          <option value="39">תצלום אוויר 2019</option>
+        </select>
+
+        <button onclick="changeBackground()">שנה רקע</button>
+      </section>
+
+      <section class="card">
+        <div class="cardTitle">שכבות</div>
+
+        <label for="layerInput">שם שכבה</label>
+        <input id="layerInput" placeholder="לדוגמה: PARCEL_ALL או שם שכבת משתמש" />
+
+        <div class="chipGrid">
+          <button class="chip" onclick="setLayerPreset('PARCEL_ALL')">PARCEL_ALL</button>
+          <button class="chip" onclick="setLayerPreset('GASSTATIONS')">GASSTATIONS</button>
+          <button class="chip" onclick="setLayerPreset('bus_stops')">bus_stops</button>
+        </div>
+
+        <div class="btnGrid">
+          <button onclick="turnLayerOn()">הדלק שכבה</button>
+          <button class="secondary" onclick="turnLayerOff()">כבה שכבה</button>
+        </div>
+
+        <button class="danger" onclick="clearLayers()">כבה את כל השכבות</button>
+
+        <div class="activeLayers" id="activeLayers">אין שכבות פעילות.</div>
+
+        <div class="smallText">
+          חשוב: אם יש לך רק מספר שכבה, זה לא תמיד מספיק. לרוב צריך את שם השכבה כפי שהוא מוגדר ב־GOVMAP.
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="cardTitle">בדיקת שכבת משתמש</div>
+
+        <button class="ok" onclick="getLayerEntities()">שלוף ישויות מהשכבה</button>
+
+        <label for="fieldNameInput">שם שדה לחיפוש בשכבה</label>
+        <input id="fieldNameInput" placeholder="לדוגמה: NAME" />
+
+        <label for="fieldValueInput">ערך לחיפוש</label>
+        <input id="fieldValueInput" placeholder="לדוגמה: אשדוד" />
+
+        <button onclick="searchInLayer()">חפש בתוך שכבה</button>
+      </section>
+
+      <section class="card">
+        <div class="cardTitle">כלים</div>
+
+        <div class="btnGrid">
+          <button onclick="getMapUrl()">קבל URL מפה</button>
+          <button class="light" onclick="copyOutput()">העתק פלט</button>
+        </div>
+
+        <div class="btnGrid">
+          <button class="secondary" onclick="runSelfTest()">בדיקת API</button>
+          <button class="danger" onclick="clearOutput()">נקה פלט</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="cardTitle">פלט / Debug</div>
+        <pre class="debugBox" id="output">ממתין לטעינת GOVMAP...</pre>
+      </section>
+    </div>
+  </aside>
+
   <script>
-    const GOVMAP_TOKEN = "ede9a5fd-7c23-432f-8ffb-d85feffa3f3c";
+    const CONFIG = {
+      token: "ede9a5fd-7c23-432f-8ffb-d85feffa3f3c",
+      mapDivId: "map",
+      defaultCenter: { x: 176000, y: 657000 },
+      defaultLevel: 3
+    };
 
-    let isMapReady = false;
+    const state = {
+      ready: false,
+      selectedPoint: null,
+      activeLayers: new Set()
+    };
 
-    function setStatus(message, isError = false) {
-      const status = document.getElementById("status");
+    const PLACES = {
+      israel: { x: 176000, y: 657000, level: 3, label: "כל ישראל" },
+      ashdod: { x: 166000, y: 633000, level: 7, label: "אשדוד" },
+      telaviv: { x: 180000, y: 665000, level: 7, label: "תל אביב" },
+      jerusalem: { x: 220000, y: 632000, level: 7, label: "ירושלים" },
+      haifa: { x: 200000, y: 745000, level: 7, label: "חיפה" }
+    };
 
-      status.textContent = message;
-
-      if (isError) {
-        status.style.background = "#fef2f2";
-        status.style.color = "#991b1b";
-      } else {
-        status.style.background = "#ecfdf5";
-        status.style.color = "#065f46";
-      }
-    }
-
-    function print(title, data) {
-      const output = document.getElementById("output");
-
-      let text;
-
+    function initGovMap() {
       try {
-        text = typeof data === "string" ? data : JSON.stringify(data, null, 2);
-      } catch (error) {
-        text = String(data);
-      }
+        govmap.createMap(CONFIG.mapDivId, {
+          token: CONFIG.token,
 
-      output.textContent = title + "\n\n" + text;
-      console.log(title, data);
+          center: CONFIG.defaultCenter,
+          level: CONFIG.defaultLevel,
+
+          layers: [
+            "PARCEL_ALL",
+            "GASSTATIONS",
+            "bus_stops"
+          ],
+
+          visibleLayers: [],
+
+          showXY: true,
+          identifyOnClick: true,
+          identifyOnlyBubble: false,
+          identifyOnlySelect: false,
+
+          background: "1",
+          bgButton: true,
+          isEmbeddedToggle: false,
+          layersMode: 2,
+          zoomButtons: true,
+
+          onLoad: function () {
+            state.ready = true;
+            setStatus("המפה נטענה בהצלחה. אפשר להתחיל לעבוד.", "ok");
+            print("GOVMAP loaded", {
+              ready: true,
+              center: CONFIG.defaultCenter,
+              level: CONFIG.defaultLevel
+            });
+          },
+
+          onClick: function (event) {
+            print("Map click", event);
+          },
+
+          onPan: function (event) {
+            console.log("Map pan", event);
+          },
+
+          onError: function (error) {
+            setStatus("שגיאת GOVMAP. בדוק שהטוקן מאושר לדומיין שבו האתר רץ.", "error");
+            print("GOVMAP error", error);
+          }
+        });
+      } catch (error) {
+        setStatus("לא הצלחתי להפעיל את GOVMAP.", "error");
+        print("Init error", normalizeError(error));
+      }
     }
 
-    function clearOutput() {
-      document.getElementById("output").textContent = "אין פלט עדיין.";
+    function togglePanel() {
+      document.getElementById("panel").classList.toggle("collapsed");
+    }
+
+    function setStatus(message, type = "ok") {
+      const el = document.getElementById("statusText");
+      const mini = document.getElementById("miniStatus");
+
+      el.textContent = message;
+      mini.textContent = message.length > 34 ? message.slice(0, 34) + "..." : message;
+
+      if (type === "error") {
+        el.style.background = "#fef2f2";
+        el.style.color = "#991b1b";
+        el.style.borderColor = "#fecaca";
+        mini.style.background = "rgba(153, 27, 27, 0.92)";
+      } else if (type === "warn") {
+        el.style.background = "#fff7ed";
+        el.style.color = "#9a3412";
+        el.style.borderColor = "#fed7aa";
+        mini.style.background = "rgba(154, 52, 18, 0.92)";
+      } else {
+        el.style.background = "#ecfdf5";
+        el.style.color = "#047857";
+        el.style.borderColor = "#bbf7d0";
+        mini.style.background = "rgba(17, 24, 39, 0.9)";
+      }
     }
 
     function requireMapReady() {
-      if (!window.govmap || !isMapReady) {
-        setStatus("המפה עדיין לא מוכנה.", true);
+      if (!window.govmap || !state.ready) {
+        setStatus("המפה עדיין לא מוכנה.", "error");
         return false;
       }
 
       return true;
     }
 
-    function initGovMap() {
+    function print(title, data) {
+      const output = document.getElementById("output");
+      output.textContent = title + "\n\n" + safeStringify(data);
+      console.log(title, data);
+    }
+
+    function clearOutput() {
+      document.getElementById("output").textContent = "הפלט נוקה.";
+      setStatus("הפלט נוקה.", "ok");
+    }
+
+    function safeStringify(value) {
+      if (typeof value === "string") return value;
+
+      const seen = new WeakSet();
+
       try {
-        govmap.createMap("map", {
-          token: GOVMAP_TOKEN,
-
-          center: {
-            x: 176000,
-            y: 657000
-          },
-
-          level: 3,
-
-          showXY: true,
-          identifyOnClick: true,
-          layersMode: 2,
-          zoomButtons: true,
-          bgButton: true,
-          background: "1",
-
-          onLoad: function () {
-            isMapReady = true;
-            setStatus("המפה נטענה בהצלחה.");
-            print("GovMap loaded", {
-              ready: true,
-              center: {
-                x: 176000,
-                y: 657000
-              }
-            });
-          },
-
-          onClick: function (event) {
-            print("Map clicked", event);
-          },
-
-          onPan: function (event) {
-            console.log("Map panned", event);
-          },
-
-          onError: function (error) {
-            setStatus("שגיאה בטעינת GOVMAP. בדוק שהטוקן מאושר לדומיין של האתר.", true);
-            print("GovMap error", error);
+        return JSON.stringify(value, function (key, val) {
+          if (typeof val === "object" && val !== null) {
+            if (seen.has(val)) return "[Circular]";
+            seen.add(val);
           }
-        });
+
+          if (typeof val === "function") return "[Function]";
+          return val;
+        }, 2);
       } catch (error) {
-        setStatus("לא הצלחתי להפעיל את GOVMAP.", true);
-        print("Init error", {
-          message: error.message,
-          stack: error.stack
-        });
+        return String(value);
       }
     }
 
+    function normalizeError(error) {
+      if (!error) return "Unknown error";
+
+      return {
+        message: error.message || String(error),
+        stack: error.stack || null
+      };
+    }
+
+    function runAsync(title, action, onSuccess) {
+      if (!requireMapReady()) return;
+
+      try {
+        const result = action();
+
+        const success = function (response) {
+          if (typeof onSuccess === "function") {
+            onSuccess(response);
+          } else {
+            print(title, response);
+          }
+        };
+
+        const failure = function (error) {
+          setStatus("שגיאה בפעולה: " + title, "error");
+          print(title + " error", normalizeError(error));
+        };
+
+        if (result && typeof result.then === "function") {
+          result.then(success, failure);
+          return;
+        }
+
+        if (result && typeof result.done === "function") {
+          result.done(success);
+          if (typeof result.fail === "function") result.fail(failure);
+          return;
+        }
+
+        success(result);
+      } catch (error) {
+        setStatus("שגיאה בפעולה: " + title, "error");
+        print(title + " exception", normalizeError(error));
+      }
+    }
+
+    function getNumber(id) {
+      const value = Number(document.getElementById(id).value);
+      return Number.isFinite(value) ? value : null;
+    }
+
     function getLayerName() {
-      return document.getElementById("layerName").value.trim();
+      return document.getElementById("layerInput").value.trim();
+    }
+
+    function setLayerPreset(name) {
+      document.getElementById("layerInput").value = name;
+      setStatus("נבחרה שכבה: " + name, "ok");
+    }
+
+    function updateActiveLayersBox() {
+      const el = document.getElementById("activeLayers");
+      const layers = Array.from(state.activeLayers);
+
+      if (!layers.length) {
+        el.textContent = "אין שכבות פעילות.";
+        return;
+      }
+
+      el.textContent = layers.join(", ");
     }
 
     function turnLayerOn() {
@@ -288,18 +751,24 @@
       const layerName = getLayerName();
 
       if (!layerName) {
-        setStatus("תכתוב קודם שם שכבה.", true);
+        setStatus("תכתוב שם שכבה לפני הדלקה.", "warn");
+        print("Layer missing", "לא הוזן שם שכבה.");
         return;
       }
 
-      try {
-        govmap.setVisibleLayers([layerName]);
-        setStatus("השכבה הודלקה: " + layerName);
-        print("Layer ON", { layerName });
-      } catch (error) {
-        setStatus("לא הצלחתי להדליק את השכבה.", true);
-        print("Layer ON error", error);
-      }
+      state.activeLayers.add(layerName);
+      updateActiveLayersBox();
+
+      runAsync("Layer ON", function () {
+        return govmap.setVisibleLayers(Array.from(state.activeLayers), []);
+      }, function (response) {
+        setStatus("השכבה הודלקה: " + layerName, "ok");
+        print("Layer ON", {
+          layerName,
+          activeLayers: Array.from(state.activeLayers),
+          response
+        });
+      });
     }
 
     function turnLayerOff() {
@@ -308,67 +777,489 @@
       const layerName = getLayerName();
 
       if (!layerName) {
-        setStatus("תכתוב קודם שם שכבה.", true);
+        setStatus("תכתוב שם שכבה לפני כיבוי.", "warn");
+        print("Layer missing", "לא הוזן שם שכבה.");
+        return;
+      }
+
+      state.activeLayers.delete(layerName);
+      updateActiveLayersBox();
+
+      runAsync("Layer OFF", function () {
+        return govmap.setVisibleLayers(Array.from(state.activeLayers), [layerName]);
+      }, function (response) {
+        setStatus("השכבה כובתה: " + layerName, "ok");
+        print("Layer OFF", {
+          layerName,
+          activeLayers: Array.from(state.activeLayers),
+          response
+        });
+      });
+    }
+
+    function clearLayers() {
+      if (!requireMapReady()) return;
+
+      const layersToTurnOff = Array.from(state.activeLayers);
+      state.activeLayers.clear();
+      updateActiveLayersBox();
+
+      runAsync("Clear layers", function () {
+        return govmap.setVisibleLayers([], layersToTurnOff);
+      }, function (response) {
+        setStatus("כל השכבות שכובו דרך הפאנל כובו.", "ok");
+        print("Clear layers", {
+          turnedOff: layersToTurnOff,
+          response
+        });
+      });
+    }
+
+    function changeBackground() {
+      if (!requireMapReady()) return;
+
+      const backgroundId = Number(document.getElementById("backgroundSelect").value);
+
+      try {
+        govmap.setBackground(backgroundId);
+        setStatus("רקע המפה שונה.", "ok");
+        print("Background changed", { backgroundId });
+      } catch (error) {
+        setStatus("לא הצלחתי לשנות רקע.", "error");
+        print("Background error", normalizeError(error));
+      }
+    }
+
+    function quickZoom(placeKey) {
+      if (!requireMapReady()) return;
+
+      const place = PLACES[placeKey];
+      if (!place) return;
+
+      try {
+        govmap.zoomToXY({
+          x: place.x,
+          y: place.y,
+          level: place.level,
+          marker: false
+        });
+
+        document.getElementById("xInput").value = place.x;
+        document.getElementById("yInput").value = place.y;
+        document.getElementById("levelInput").value = place.level;
+
+        setStatus("עברתי אל: " + place.label, "ok");
+        print("Quick zoom", place);
+      } catch (error) {
+        setStatus("לא הצלחתי לבצע זום.", "error");
+        print("Quick zoom error", normalizeError(error));
+      }
+    }
+
+    function zoomToManualXY() {
+      if (!requireMapReady()) return;
+
+      const x = getNumber("xInput");
+      const y = getNumber("yInput");
+      const level = getNumber("levelInput");
+
+      if (x === null || y === null || level === null) {
+        setStatus("X/Y/זום חייבים להיות מספרים.", "error");
         return;
       }
 
       try {
-        govmap.setVisibleLayers([], [layerName]);
-        setStatus("השכבה כובתה: " + layerName);
-        print("Layer OFF", { layerName });
+        govmap.zoomToXY({
+          x,
+          y,
+          level,
+          marker: true
+        });
+
+        state.selectedPoint = { x, y };
+        setStatus("עברתי לנקודה וסימנתי אותה.", "ok");
+        print("Zoom to XY", { x, y, level });
       } catch (error) {
-        setStatus("לא הצלחתי לכבות את השכבה.", true);
-        print("Layer OFF error", error);
+        setStatus("לא הצלחתי לעבור לנקודה.", "error");
+        print("Zoom to XY error", normalizeError(error));
       }
     }
 
-    function getMapCenter() {
-      if (!requireMapReady()) return;
+    function getCenter() {
+      runAsync("Map center", function () {
+        return govmap.getCenter();
+      }, function (response) {
+        const point = extractPoint(response);
 
-      try {
-        govmap.getCenter()
-          .then(function (response) {
-            setStatus("מרכז המפה התקבל.");
-            print("Map center", response);
-          })
-          .catch(function (error) {
-            setStatus("שגיאה בקבלת מרכז המפה.", true);
-            print("getCenter error", error);
-          });
-      } catch (error) {
-        setStatus("הפונקציה getCenter לא עבדה.", true);
-        print("getCenter exception", error);
-      }
+        if (point) {
+          document.getElementById("xInput").value = Math.round(point.x);
+          document.getElementById("yInput").value = Math.round(point.y);
+        }
+
+        setStatus("מרכז המפה התקבל.", "ok");
+        print("Map center", response);
+      });
     }
 
     function getMapUrl() {
-      if (!requireMapReady()) return;
-
-      govmap.getMapUrl()
-        .then(function (response) {
-          setStatus("קישור המפה התקבל.");
-          print("Map URL", response);
-        })
-        .catch(function (error) {
-          setStatus("שגיאה בקבלת קישור המפה.", true);
-          print("getMapUrl error", error);
-        });
+      runAsync("Map URL", function () {
+        return govmap.getMapUrl();
+      }, function (response) {
+        setStatus("קישור המפה התקבל.", "ok");
+        print("Map URL", response);
+      });
     }
 
     function choosePoint() {
       if (!requireMapReady()) return;
 
-      setStatus("לחץ על נקודה במפה.");
+      setStatus("לחץ על נקודה במפה. אחרי הלחיצה יופיעו X/Y.", "warn");
 
-      govmap.getXY()
-        .then(function (response) {
-          setStatus("נקודה נבחרה.");
+      try {
+        const result = govmap.getXY();
+
+        const handlePoint = function (response) {
+          const point = extractPoint(response);
+
+          if (point) {
+            const x = Math.round(point.x * 100) / 100;
+            const y = Math.round(point.y * 100) / 100;
+
+            state.selectedPoint = { x, y };
+            document.getElementById("xInput").value = x;
+            document.getElementById("yInput").value = y;
+
+            setStatus("נקודה נבחרה: X=" + x + ", Y=" + y, "ok");
+          } else {
+            setStatus("התקבלה תשובה, אבל לא מצאתי X/Y. בדוק פלט.", "warn");
+          }
+
           print("Selected point", response);
-        })
-        .catch(function (error) {
-          setStatus("שגיאה בבחירת נקודה.", true);
-          print("getXY error", error);
+
+          if (govmap.setDefaultTool) {
+            govmap.setDefaultTool();
+          }
+        };
+
+        const handleError = function (error) {
+          setStatus("שגיאה בבחירת נקודה.", "error");
+          print("getXY error", normalizeError(error));
+
+          if (govmap.setDefaultTool) {
+            govmap.setDefaultTool();
+          }
+        };
+
+        if (result && typeof result.progress === "function") {
+          result.progress(handlePoint);
+          if (typeof result.fail === "function") result.fail(handleError);
+          return;
+        }
+
+        if (result && typeof result.then === "function") {
+          result.then(handlePoint, handleError);
+          return;
+        }
+
+        handlePoint(result);
+      } catch (error) {
+        setStatus("שגיאה בבחירת נקודה.", "error");
+        print("getXY exception", normalizeError(error));
+      }
+    }
+
+    function identifyAtPoint() {
+      if (!requireMapReady()) return;
+
+      const x = getNumber("xInput");
+      const y = getNumber("yInput");
+
+      if (x === null || y === null) {
+        setStatus("צריך X/Y תקינים לזיהוי.", "error");
+        return;
+      }
+
+      runAsync("Identify by XY", function () {
+        return govmap.identifyByXY(x, y);
+      }, function (response) {
+        setStatus("הזיהוי הסתיים. ראה פלט.", "ok");
+        print("Identify by XY", response);
+      });
+    }
+
+    function searchAddress() {
+      if (!requireMapReady()) return;
+
+      const keyword = document.getElementById("addressInput").value.trim();
+
+      if (!keyword) {
+        setStatus("תכתוב כתובת או שם מקום.", "warn");
+        return;
+      }
+
+      runAsync("Geocode", function () {
+        return govmap.geocode({
+          keyword,
+          type: govmap.geocodeType.FullResult
         });
+      }, function (response) {
+        const point = extractPoint(response);
+
+        if (point) {
+          const x = Math.round(point.x * 100) / 100;
+          const y = Math.round(point.y * 100) / 100;
+
+          document.getElementById("xInput").value = x;
+          document.getElementById("yInput").value = y;
+          document.getElementById("levelInput").value = 8;
+
+          govmap.zoomToXY({
+            x,
+            y,
+            level: 8,
+            marker: true
+          });
+
+          state.selectedPoint = { x, y };
+          setStatus("נמצא מיקום לכתובת ובוצע זום.", "ok");
+        } else {
+          setStatus("החיפוש הסתיים, אבל לא מצאתי X/Y בתשובה.", "warn");
+        }
+
+        print("Geocode response", response);
+      });
+    }
+
+    function clearSearch() {
+      document.getElementById("addressInput").value = "";
+      setStatus("שדה החיפוש נוקה.", "ok");
+    }
+
+    function getLayerEntities() {
+      if (!requireMapReady()) return;
+
+      const layerName = getLayerName();
+
+      if (!layerName) {
+        setStatus("תכתוב שם שכבת משתמש.", "warn");
+        return;
+      }
+
+      runAsync("Layer entities", function () {
+        return govmap.getLayerEntities({
+          layerName,
+          token: CONFIG.token
+        });
+      }, function (response) {
+        setStatus("התקבלה תשובה מהשכבה.", "ok");
+
+        let count = null;
+        if (Array.isArray(response)) count = response.length;
+        if (response && Array.isArray(response.data)) count = response.data.length;
+
+        print("Layer entities", {
+          layerName,
+          count,
+          response
+        });
+      });
+    }
+
+    function searchInLayer() {
+      if (!requireMapReady()) return;
+
+      const layerName = getLayerName();
+      const fieldName = document.getElementById("fieldNameInput").value.trim();
+      const fieldValue = document.getElementById("fieldValueInput").value.trim();
+
+      if (!layerName || !fieldName || !fieldValue) {
+        setStatus("צריך שם שכבה, שם שדה וערך לחיפוש.", "warn");
+        return;
+      }
+
+      const fieldValues = fieldValue
+        .split(",")
+        .map(function (x) { return x.trim(); })
+        .filter(Boolean);
+
+      runAsync("Search in layer", function () {
+        return govmap.searchInLayer({
+          layerName,
+          fieldName,
+          fieldValues,
+          highlight: true,
+          showBubble: true,
+          outLineColor: [185, 28, 28, 1],
+          fillColor: [185, 28, 28, 0.25]
+        });
+      }, function (response) {
+        setStatus("בוצע חיפוש בשכבה.", "ok");
+        print("Search in layer", {
+          layerName,
+          fieldName,
+          fieldValues,
+          response
+        });
+      });
+    }
+
+    function runSelfTest() {
+      if (!window.govmap) {
+        setStatus("govmap לא קיים בחלון.", "error");
+        print("API self test", { govmapLoaded: false });
+        return;
+      }
+
+      const functions = [
+        "createMap",
+        "setVisibleLayers",
+        "getCenter",
+        "getMapUrl",
+        "getXY",
+        "setDefaultTool",
+        "geocode",
+        "zoomToXY",
+        "identifyByXY",
+        "setBackground",
+        "getLayerEntities",
+        "searchInLayer"
+      ];
+
+      const result = {};
+
+      functions.forEach(function (fn) {
+        result[fn] = typeof govmap[fn] === "function";
+      });
+
+      setStatus("בדיקת API הסתיימה.", "ok");
+      print("API self test", {
+        ready: state.ready,
+        functions: result,
+        geocodeTypeExists: !!govmap.geocodeType,
+        activeLayers: Array.from(state.activeLayers)
+      });
+    }
+
+    function copyOutput() {
+      const text = document.getElementById("output").textContent;
+
+      if (!navigator.clipboard) {
+        fallbackCopy(text);
+        return;
+      }
+
+      navigator.clipboard.writeText(text)
+        .then(function () {
+          setStatus("הפלט הועתק.", "ok");
+        })
+        .catch(function () {
+          fallbackCopy(text);
+        });
+    }
+
+    function fallbackCopy(text) {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+
+      try {
+        document.execCommand("copy");
+        setStatus("הפלט הועתק.", "ok");
+      } catch (error) {
+        setStatus("לא הצלחתי להעתיק.", "error");
+      }
+
+      document.body.removeChild(textarea);
+    }
+
+    function extractPoint(input) {
+      const visited = new WeakSet();
+
+      function isNum(value) {
+        return typeof value === "number" && Number.isFinite(value);
+      }
+
+      function fromObject(obj) {
+        if (!obj || typeof obj !== "object") return null;
+
+        const x =
+          isNum(obj.x) ? obj.x :
+          isNum(obj.X) ? obj.X :
+          isNum(obj.lon) ? obj.lon :
+          isNum(obj.Lon) ? obj.Lon :
+          null;
+
+        const y =
+          isNum(obj.y) ? obj.y :
+          isNum(obj.Y) ? obj.Y :
+          isNum(obj.lat) ? obj.lat :
+          isNum(obj.Lat) ? obj.Lat :
+          null;
+
+        if (x !== null && y !== null) {
+          return { x, y };
+        }
+
+        return null;
+      }
+
+      function scan(value, depth) {
+        if (depth > 7 || value == null) return null;
+
+        if (Array.isArray(value)) {
+          if (value.length >= 2 && isNum(value[0]) && isNum(value[1])) {
+            return { x: value[0], y: value[1] };
+          }
+
+          for (const item of value) {
+            const found = scan(item, depth + 1);
+            if (found) return found;
+          }
+
+          return null;
+        }
+
+        if (typeof value !== "object") return null;
+
+        if (visited.has(value)) return null;
+        visited.add(value);
+
+        const direct = fromObject(value);
+        if (direct) return direct;
+
+        const priorityKeys = [
+          "mapPoint",
+          "point",
+          "Point",
+          "center",
+          "Center",
+          "location",
+          "Location",
+          "data",
+          "Data",
+          "result",
+          "Result"
+        ];
+
+        for (const key of priorityKeys) {
+          if (Object.prototype.hasOwnProperty.call(value, key)) {
+            const found = scan(value[key], depth + 1);
+            if (found) return found;
+          }
+        }
+
+        for (const key of Object.keys(value)) {
+          const found = scan(value[key], depth + 1);
+          if (found) return found;
+        }
+
+        return null;
+      }
+
+      return scan(input, 0);
     }
   </script>
 </body>
