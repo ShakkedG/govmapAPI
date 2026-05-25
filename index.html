@@ -468,7 +468,7 @@
       left: 16px;
       top: 92px;
       z-index: 18;
-      max-width: 390px;
+      max-width: 420px;
       border-radius: 18px;
       padding: 12px 14px;
       color: var(--text);
@@ -563,7 +563,7 @@
             </div>
 
             <div class="muted" style="margin-top:10px;">
-              החיפוש נעשה מול שכבת המקלטים של GOVMAP. הקו מצויר רק לקואורדינטה אמיתית שנמצאת בתחום ישראל.
+              אם תלחץ במקום מבודד, האתר ירחיב את הרדיוס אוטומטית עד שימצא מקלט עם קואורדינטות תקינות.
             </div>
           </div>
 
@@ -582,7 +582,7 @@
               </div>
 
               <div class="statCard">
-                <div class="statLabel">רדיוס</div>
+                <div class="statLabel">רדיוס שנמצא</div>
                 <div class="statValue yellow" id="lastRadius">—</div>
               </div>
 
@@ -611,7 +611,7 @@
               <button class="pill" onclick="setLayerName('417')">417</button>
             </div>
 
-            <label for="radiusSelect">רדיוס חיפוש</label>
+            <label for="radiusSelect">רדיוס התחלה</label>
             <select id="radiusSelect">
               <option value="250">250 מטר</option>
               <option value="500">500 מטר</option>
@@ -620,6 +620,8 @@
               <option value="3000" selected>3 ק״מ</option>
               <option value="5000">5 ק״מ</option>
               <option value="10000">10 ק״מ</option>
+              <option value="20000">20 ק״מ</option>
+              <option value="50000">50 ק״מ</option>
             </select>
 
             <div class="row">
@@ -711,7 +713,22 @@
 
     const DEFAULT_LAYER_NAME = "BOMBSHELTERS";
     const LAYER_FALLBACKS = ["BOMBSHELTERS", "417"];
-    const RADIUS_FALLBACKS = [250, 500, 1000, 2000, 3000, 5000, 10000];
+
+    const RADIUS_FALLBACKS = [
+      250,
+      500,
+      1000,
+      2000,
+      3000,
+      5000,
+      10000,
+      20000,
+      50000,
+      100000,
+      200000,
+      500000,
+      1000000
+    ];
 
     const state = {
       ready: false,
@@ -1004,16 +1021,10 @@
           radius: searchResult.radius,
           nearest: searchResult.nearest,
           candidatesCount: searchResult.candidates.length,
-          rawDataResponse: searchResult.rawDataResponse,
-          rawGeometryResponse: searchResult.rawGeometryResponse
+          rawResponse: searchResult.rawResponse
         });
 
-        if (searchResult.nearest.hasGeometry) {
-          setStatus("נמצא המקלט הקרוב וצויר קו אליו.");
-        } else {
-          setStatus("נמצא מקלט, אבל GOVMAP לא החזיר לו גיאומטריה לציור קו.", true);
-        }
-
+        setStatus("נמצא המקלט הקרוב וצויר קו אליו.");
         resetGovMapTool();
 
         if (state.measuring) {
@@ -1047,236 +1058,98 @@
       const layerOrder = getLayerOrder();
       const radiusOrder = getRadiusOrder();
 
-      let lastRawDataResponse = null;
-      let lastRawGeometryResponse = null;
+      let lastRawResponse = null;
 
       for (const radius of radiusOrder) {
         for (const layerName of layerOrder) {
-          const dataResult = await queryGetLayerData(layerName, clicked, radius);
-          lastRawDataResponse = dataResult.rawResponse;
+          setStatus("מחפש מקלטים ברדיוס " + formatDistance(radius) + "...");
 
-          if (!dataResult.candidates.length) {
-            continue;
-          }
+          const geometryResult = await queryIntersectFeatures(layerName, clicked, radius);
+          lastRawResponse = geometryResult.rawResponse;
 
-          const candidatesWithGeometry = [];
-
-          for (const candidate of dataResult.candidates.slice(0, 20)) {
-            let geometryPoint = candidate.point;
-
-            if (!geometryPoint && candidate.objectId) {
-              const geometryResult = await getGeometryByObjectId(layerName, candidate.objectId);
-              lastRawGeometryResponse = geometryResult.rawResponse;
-
-              if (geometryResult.point) {
-                geometryPoint = geometryResult.point;
-              }
-            }
-
-            if (geometryPoint && isValidIsraelGridPoint(geometryPoint)) {
-              candidate.x = geometryPoint.x;
-              candidate.y = geometryPoint.y;
-              candidate.hasGeometry = true;
-              candidate.distanceMeters = distanceMeters(clicked, geometryPoint);
-            } else {
-              candidate.hasGeometry = false;
-            }
-
-            candidatesWithGeometry.push(candidate);
-          }
-
-          const validGeometryCandidates = candidatesWithGeometry
-            .filter(function (candidate) {
-              return candidate.hasGeometry && Number.isFinite(candidate.distanceMeters);
-            })
-            .sort(function (a, b) {
-              return a.distanceMeters - b.distanceMeters;
-            });
-
-          if (validGeometryCandidates.length) {
+          if (geometryResult.candidates.length) {
             return {
               layerName,
               radius,
-              nearest: validGeometryCandidates[0],
-              candidates: validGeometryCandidates,
-              rawDataResponse: dataResult.rawResponse,
-              rawGeometryResponse: lastRawGeometryResponse
+              nearest: geometryResult.candidates[0],
+              candidates: geometryResult.candidates,
+              rawResponse: geometryResult.rawResponse
             };
           }
-
-          const fallbackIntersect = await queryIntersectFeatures(layerName, clicked, radius);
-          lastRawGeometryResponse = fallbackIntersect.rawResponse;
-
-          if (fallbackIntersect.candidates.length) {
-            return {
-              layerName,
-              radius,
-              nearest: fallbackIntersect.candidates[0],
-              candidates: fallbackIntersect.candidates,
-              rawDataResponse: dataResult.rawResponse,
-              rawGeometryResponse: fallbackIntersect.rawResponse
-            };
-          }
-
-          return {
-            layerName,
-            radius,
-            nearest: candidatesWithGeometry[0],
-            candidates: candidatesWithGeometry,
-            rawDataResponse: dataResult.rawResponse,
-            rawGeometryResponse: lastRawGeometryResponse
-          };
         }
       }
 
       return {
         nearest: null,
         candidates: [],
-        rawDataResponse: lastRawDataResponse,
-        rawGeometryResponse: lastRawGeometryResponse
+        rawResponse: lastRawResponse
       };
     }
 
-    async function queryGetLayerData(layerName, clicked, radius) {
-      try {
-        const response = await toPromise(govmap.getLayerData({
-          LayerName: layerName,
-          Point: { x: clicked.x, y: clicked.y },
-          Radius: radius
-        }));
-
-        const candidates = parseGetLayerDataCandidates(response, clicked)
-          .filter(function (candidate) {
-            return Number.isFinite(candidate.distanceMeters);
-          })
-          .sort(function (a, b) {
-            return a.distanceMeters - b.distanceMeters;
-          });
-
-        return { candidates, rawResponse: response };
-      } catch (error) {
-        return {
-          candidates: [],
-          rawResponse: { error: normalizeError(error), layerName, radius }
-        };
-      }
-    }
-
-    async function getGeometryByObjectId(layerName, objectId) {
-      if (!objectId) {
-        return { point: null, rawResponse: null };
-      }
-
-      const idText = String(objectId).trim();
-      const idNumber = Number(idText);
-      const isNumericId = Number.isFinite(idNumber);
-
-      const whereValues = isNumericId
-        ? [String(idNumber)]
-        : ["'" + idText.replaceAll("'", "''") + "'"];
-
-      const fieldNames = ["objectid", "OBJECTID", "ObjectId"];
-      let lastResponse = null;
-
-      for (const field of fieldNames) {
-        for (const value of whereValues) {
-          try {
-            const params = {
-              layerName: layerName,
-              fields: ["objectid"],
-              getShapes: true,
-              whereClause: "(" + field + " = " + value + ")"
-            };
-
-            const response = await toPromise(govmap.intersectFeatures(params));
-            lastResponse = response;
-
-            const items = getDataItems(response);
-
-            for (const item of items) {
-              const point = extractStrictGeometryPoint(item);
-              if (point && isValidIsraelGridPoint(point)) {
-                return { point, rawResponse: response };
-              }
-            }
-          } catch (error) {
-            lastResponse = {
-              error: normalizeError(error),
-              layerName,
-              objectId,
-              field
-            };
-          }
-        }
-      }
-
-      return { point: null, rawResponse: lastResponse };
-    }
-
     async function queryIntersectFeatures(layerName, clicked, radius) {
-      try {
-        const response = await toPromise(govmap.intersectFeatures({
+      const requestVariants = [
+        {
           geometry: "POINT(" + clicked.x + " " + clicked.y + ")",
           layerName: layerName,
           fields: ["objectid"],
           getShapes: true,
           radius: radius
-        }));
+        },
+        {
+          geometry: "POINT(" + clicked.x + " " + clicked.y + ")",
+          layerName: layerName,
+          fields: ["objectid", "name", "shem", "address"],
+          getShapes: true,
+          radius: radius
+        },
+        {
+          geometry: "POINT(" + clicked.x + " " + clicked.y + ")",
+          layerName: layerName,
+          fields: [],
+          getShapes: true,
+          radius: radius
+        }
+      ];
 
-        const candidates = parseIntersectCandidates(response, clicked)
-          .filter(function (candidate) {
-            return candidate.hasGeometry && Number.isFinite(candidate.distanceMeters);
-          })
-          .sort(function (a, b) {
-            return a.distanceMeters - b.distanceMeters;
-          });
+      let lastResponse = null;
 
-        return { candidates, rawResponse: response };
-      } catch (error) {
-        return {
-          candidates: [],
-          rawResponse: { error: normalizeError(error), layerName, radius }
-        };
+      for (const params of requestVariants) {
+        try {
+          const response = await toPromise(govmap.intersectFeatures(params));
+          lastResponse = response;
+
+          const candidates = parseIntersectCandidates(response, clicked)
+            .filter(function (candidate) {
+              return (
+                candidate.hasGeometry &&
+                isValidIsraelGridPoint(candidate) &&
+                Number.isFinite(candidate.distanceMeters)
+              );
+            })
+            .sort(function (a, b) {
+              return a.distanceMeters - b.distanceMeters;
+            });
+
+          if (candidates.length) {
+            return {
+              candidates,
+              rawResponse: response
+            };
+          }
+        } catch (error) {
+          lastResponse = {
+            error: normalizeError(error),
+            layerName,
+            radius,
+            params
+          };
+        }
       }
-    }
 
-    function parseGetLayerDataCandidates(response, clicked) {
-      const items = getDataItems(response);
-      const candidates = [];
-
-      items.forEach(function (item, index) {
-        const attrs = flattenAttributes(item);
-        const objectId = getObjectId(item, attrs);
-        const distance = extractDistance(item, attrs);
-        const point = extractStrictGeometryPoint(item);
-
-        let finalDistance = distance;
-
-        if (!Number.isFinite(finalDistance) && point) {
-          finalDistance = distanceMeters(clicked, point);
-        }
-
-        if (!Number.isFinite(finalDistance)) {
-          return;
-        }
-
-        candidates.push({
-          index,
-          source: "getLayerData",
-          objectId,
-          name: extractName(attrs, objectId, index),
-          address: extractAddress(attrs),
-          description: extractDescription(attrs),
-          point,
-          x: point ? point.x : null,
-          y: point ? point.y : null,
-          hasGeometry: !!point,
-          distanceMeters: finalDistance,
-          raw: item
-        });
-      });
-
-      return candidates;
+      return {
+        candidates: [],
+        rawResponse: lastResponse
+      };
     }
 
     function parseIntersectCandidates(response, clicked) {
@@ -1285,6 +1158,7 @@
 
       items.forEach(function (item, index) {
         const point = extractStrictGeometryPoint(item);
+
         if (!point || !isValidIsraelGridPoint(point)) {
           return;
         }
@@ -1300,7 +1174,6 @@
           name: extractName(attrs, objectId, index),
           address: extractAddress(attrs),
           description: extractDescription(attrs),
-          point,
           x: point.x,
           y: point.y,
           hasGeometry: true,
@@ -1485,27 +1358,6 @@
       ]);
     }
 
-    function extractDistance(item, attrs) {
-      const directKeys = Object.keys(item || {}).filter(function (key) {
-        const lower = key.toLowerCase();
-        return lower.includes("distance") || lower.includes("dist") || key.includes("מרחק");
-      });
-
-      for (const key of directKeys) {
-        const parsed = parseNumber(item[key]);
-        if (Number.isFinite(parsed)) return parsed;
-      }
-
-      const value = findAttr(attrs, [
-        "distance",
-        "dist",
-        "מרחק",
-        "merhak"
-      ]);
-
-      return parseNumber(value);
-    }
-
     function findAttr(attrs, patterns) {
       const normalizedPatterns = patterns.map(function (p) {
         return String(p).toLowerCase();
@@ -1528,16 +1380,6 @@
       }
 
       return "";
-    }
-
-    function parseNumber(value) {
-      if (value === null || value === undefined || value === "") return NaN;
-
-      const cleaned = String(value)
-        .replace(/,/g, "")
-        .replace(/[^\d.\-]/g, "");
-
-      return Number(cleaned);
     }
 
     function extractClickPoint(response) {
@@ -1752,11 +1594,6 @@
 
     async function drawResult(clicked, nearest) {
       await drawClickedPoint(clicked, true);
-
-      if (!nearest.hasGeometry || !isValidIsraelGridPoint(nearest)) {
-        return;
-      }
-
       await drawNearestShelterPoint(nearest);
       await drawLineToShelter(clicked, nearest);
     }
@@ -1859,26 +1696,19 @@
     }
 
     function updateNearestResult(clicked, nearest, searchResult) {
-      const hasLine = nearest.hasGeometry && isValidIsraelGridPoint(nearest);
-
       document.getElementById("nearestResult").innerHTML =
         "<strong>המקלט הקרוב ביותר:</strong><br>" +
         escapeHtml(nearest.name) +
         "<div class='distanceBig'>" + formatDistance(nearest.distanceMeters) + "</div>" +
         "<strong>שכבה:</strong><br>" +
         escapeHtml(searchResult.layerName) + "<br><br>" +
-        "<strong>רדיוס חיפוש:</strong><br>" +
+        "<strong>רדיוס שבו נמצא:</strong><br>" +
         formatDistance(searchResult.radius) + "<br><br>" +
         "<strong>נקודת הלחיצה:</strong><br>" +
         "X: " + Math.round(clicked.x) + " · Y: " + Math.round(clicked.y) + "<br><br>" +
         "<strong>המקלט:</strong><br>" +
-        (hasLine
-          ? "X: " + Math.round(nearest.x) + " · Y: " + Math.round(nearest.y)
-          : "GOVMAP לא החזיר X/Y תקין למקלט הזה") +
-        (nearest.objectId ? "<br><br><strong>ObjectId:</strong><br>" + escapeHtml(nearest.objectId) : "") +
-        (!hasLine
-          ? "<div class='warning'>נמצא מקלט, אבל לא התקבלה גיאומטריה תקינה ולכן לא צויר קו. פתח Debug ובדוק אם יש Shape/WKT בתשובה.</div>"
-          : "");
+        "X: " + Math.round(nearest.x) + " · Y: " + Math.round(nearest.y) +
+        (nearest.objectId ? "<br><br><strong>ObjectId:</strong><br>" + escapeHtml(nearest.objectId) : "");
     }
 
     function updateDashboard() {
@@ -1925,8 +1755,6 @@
 
       rows.forEach(function (candidate) {
         const realIndex = state.lastCandidates.indexOf(candidate);
-        const hasXY = candidate.hasGeometry && isValidIsraelGridPoint(candidate);
-
         const tr = document.createElement("tr");
 
         tr.innerHTML =
@@ -1936,7 +1764,7 @@
           "</td>" +
           "<td dir='ltr'>" + formatDistance(candidate.distanceMeters) + "</td>" +
           "<td>" + escapeHtml(candidate.objectId || "—") + "</td>" +
-          "<td><button class='darkBtn' onclick='zoomToResult(" + realIndex + ")' " + (!hasXY ? "disabled" : "") + ">זום</button></td>";
+          "<td><button class='darkBtn' onclick='zoomToResult(" + realIndex + ")'>זום</button></td>";
 
         tbody.appendChild(tr);
       });
@@ -1973,7 +1801,7 @@
 
       const candidate = state.lastCandidates[index];
 
-      if (!candidate || !candidate.hasGeometry || !isValidIsraelGridPoint(candidate)) {
+      if (!candidate || !isValidIsraelGridPoint(candidate)) {
         setStatus("אין X/Y תקין לתוצאה הזאת.", true);
         return;
       }
