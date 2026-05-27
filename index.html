@@ -4,7 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <title>ShelterMap GOVMAP</title>
+  <title>ShelterMap Navigation</title>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.min.js"></script>
 
   <script
     src="https://www.govmap.gov.il/govmap/api/govmap.api.js"
@@ -123,7 +125,6 @@
       padding: 10px;
       align-items: center;
       min-height: 64px;
-      position: relative;
     }
 
     .quickStats {
@@ -158,7 +159,7 @@
       right: 16px;
       bottom: 16px;
       z-index: 19;
-      width: 450px;
+      width: 460px;
       pointer-events: none;
     }
 
@@ -173,7 +174,7 @@
 
     .tabs {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(5, 1fr);
       border-bottom: 1px solid var(--border);
       background: rgba(2, 6, 23, 0.55);
     }
@@ -182,10 +183,11 @@
       border: none;
       background: transparent;
       color: var(--muted);
-      padding: 14px 8px;
+      padding: 14px 6px;
       cursor: pointer;
       font-weight: 800;
       border-bottom: 3px solid transparent;
+      font-size: 12px;
     }
 
     .tab.active {
@@ -411,6 +413,17 @@
       margin-top: 10px;
     }
 
+    .success {
+      color: #bbf7d0;
+      background: rgba(34, 197, 94, 0.1);
+      border: 1px solid rgba(34, 197, 94, 0.35);
+      border-radius: 14px;
+      padding: 10px;
+      font-size: 12px;
+      line-height: 1.5;
+      margin-top: 10px;
+    }
+
     .progressWrap {
       height: 10px;
       background: rgba(2, 6, 23, 0.55);
@@ -485,6 +498,7 @@
       z-index: 18;
       display: flex;
       gap: 8px;
+      flex-wrap: wrap;
     }
 
     .floatingActions button {
@@ -498,7 +512,7 @@
       left: 16px;
       top: 92px;
       z-index: 18;
-      max-width: 500px;
+      max-width: 520px;
       border-radius: 18px;
       padding: 12px 14px;
       color: var(--text);
@@ -531,11 +545,20 @@
         left: 10px;
         bottom: 10px;
         width: auto;
-        max-height: 72vh;
+        max-height: 74vh;
       }
 
       .status {
         display: none;
+      }
+
+      .tabs {
+        grid-template-columns: repeat(5, 1fr);
+      }
+
+      .tab {
+        font-size: 11px;
+        padding: 12px 4px;
       }
     }
   </style>
@@ -549,7 +572,7 @@
       <div class="logo">SM</div>
       <div>
         <div class="brandTitle">ShelterMap</div>
-        <div class="brandSub">מקלט קרוב, קו אווירי וחיפוש ישובים</div>
+        <div class="brandSub">ניווט למקלט הקרוב ביותר</div>
       </div>
     </div>
 
@@ -565,7 +588,7 @@
         <div class="miniStatValue" id="topRequestsCount">0</div>
       </div>
       <div class="miniStat">
-        <div class="miniStatLabel">מרחק אחרון</div>
+        <div class="miniStatLabel">מרחק אווירי</div>
         <div class="miniStatValue" id="topLastDistance">—</div>
       </div>
     </div>
@@ -577,6 +600,7 @@
     <aside class="panel">
       <nav class="tabs">
         <button class="tab active" onclick="showTab('dashboard', this)">סקירה</button>
+        <button class="tab" onclick="showTab('navigate', this)">ניווט</button>
         <button class="tab" onclick="showTab('search', this)">חיפוש</button>
         <button class="tab" onclick="showTab('results', this)">תוצאות</button>
         <button class="tab" onclick="showTab('settings', this)">הגדרות</button>
@@ -587,10 +611,15 @@
           <div class="card">
             <div class="cardTitle">מציאת מקלט קרוב</div>
 
-            <button class="primary" onclick="startMeasureMode()">לחץ כאן ואז לחץ על המפה</button>
+            <button class="greenBtn" onclick="useMyLocationAndFindShelter()">השתמש במיקום שלי ומצא מקלט</button>
 
             <div class="row">
-              <button class="greenBtn" onclick="showShelterLayer()">הצג שכבת מקלטים</button>
+              <button class="primary" onclick="startMeasureMode()">בחר נקודה במפה</button>
+              <button class="blueBtn" onclick="useMyLocation()">רק הצג מיקום שלי</button>
+            </div>
+
+            <div class="row">
+              <button class="darkBtn" onclick="showShelterLayer()">הצג שכבת מקלטים</button>
               <button class="dangerBtn" onclick="cancelSearch()">בטל חיפוש</button>
             </div>
 
@@ -603,8 +632,8 @@
               <div class="progressBar" id="progressBar"></div>
             </div>
 
-            <div class="muted" style="margin-top:10px;">
-              החיפוש משתמש ב־Cache ובמרכזי חיפוש ממוינים לפי סיכוי למצוא מקלט קרוב. הוא עוצר כשאין סיכוי למצוא תוצאה טובה יותר.
+            <div class="warning">
+              במקרה חירום, היכנס למרחב המוגן הקרוב ביותר לפי הנחיות פיקוד העורף. האתר מסייע בניווט, אבל לא מחליף שיקול דעת או שילוט מקומי.
             </div>
           </div>
 
@@ -628,7 +657,7 @@
               </div>
 
               <div class="statCard">
-                <div class="statLabel">מרחק אחרון</div>
+                <div class="statLabel">מרחק אווירי</div>
                 <div class="statValue green" id="lastDistance">—</div>
               </div>
 
@@ -638,14 +667,55 @@
               </div>
 
               <div class="statCard">
-                <div class="statLabel">Cache</div>
-                <div class="statValue orange" id="cacheSize">0</div>
+                <div class="statLabel">GPS</div>
+                <div class="statValue orange" id="gpsState">לא פעיל</div>
               </div>
 
               <div class="statCard">
                 <div class="statLabel">חיפוש אחרון</div>
                 <div class="statValue blue" id="lastSearchName">—</div>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="tab-navigate" class="hidden">
+          <div class="card">
+            <div class="cardTitle">ניווט ב־Google Maps</div>
+
+            <button class="greenBtn" onclick="openGoogleMapsNavigation('walking')">ניווט רגלי למקלט הקרוב</button>
+
+            <div class="row">
+              <button class="blueBtn" onclick="openGoogleMapsNavigation('driving')">ניווט ברכב</button>
+              <button class="darkBtn" onclick="openGoogleMapsNavigation('bicycling')">אופניים</button>
+            </div>
+
+            <div class="row">
+              <button class="darkBtn" onclick="openGoogleMapsNavigation('transit')">תחבורה ציבורית</button>
+              <button class="darkBtn" onclick="openGoogleMapsNavigation('')">פתח ב־Maps</button>
+            </div>
+
+            <div class="row">
+              <button class="darkBtn" onclick="copyNavigationLink('walking')">העתק קישור ניווט</button>
+              <button class="darkBtn" onclick="shareShelter()">שתף מקלט</button>
+            </div>
+
+            <div id="navigationBox" class="result" style="margin-top:10px;">
+              עדיין אין מקלט לניווט. לחץ על “השתמש במיקום שלי ומצא מקלט”.
+            </div>
+
+            <div class="success">
+              אם אישרת GPS, הניווט ייפתח מהמיקום שלך. אם לא אישרת, Google Maps יבקש לבחור נקודת מוצא.
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="cardTitle">מיקום שלי</div>
+
+            <button class="blueBtn" onclick="useMyLocation()">קבל מיקום GPS</button>
+
+            <div id="myLocationBox" class="result" style="margin-top:10px;">
+              אין מיקום GPS עדיין.
             </div>
           </div>
         </section>
@@ -819,7 +889,8 @@
 
   <div class="floatingActions">
     <button onclick="togglePanel()">☰</button>
-    <button onclick="quickIsrael()">ישראל</button>
+    <button onclick="useMyLocationAndFindShelter()">GPS</button>
+    <button onclick="openGoogleMapsNavigation('walking')">נווט</button>
     <button onclick="startMeasureMode()">מדוד</button>
     <button onclick="cancelSearch()">בטל</button>
   </div>
@@ -831,10 +902,13 @@
     const LAYER_FALLBACKS = ["BOMBSHELTERS", "417"];
     const GOVMAP_MAX_SAFE_RADIUS = 3000;
 
-    const SETTINGS_KEY = "sheltermap_settings_v2";
+    const SETTINGS_KEY = "sheltermap_settings_v3";
     const RECENT_SEARCHES_KEY = "sheltermap_recent_searches_v1";
 
     const searchCache = new Map();
+
+    const WGS84 = "EPSG:4326";
+    const ITM = "EPSG:2039";
 
     const state = {
       ready: false,
@@ -848,13 +922,27 @@
       lastLayerUsed: DEFAULT_LAYER_NAME,
       lastSettlementPoint: null,
       lastSettlementName: "",
+      myLocation: null,
       requestsCounter: 0,
       cacheHits: 0,
       totalCenters: 0,
       checkedCenters: 0
     };
 
+    function setupProjection() {
+      if (!window.proj4) {
+        setStatus("proj4 לא נטען, לכן ניווט Google Maps לא יעבוד.", true);
+        return;
+      }
+
+      proj4.defs(
+        ITM,
+        "+proj=tmerc +lat_0=31.7343936111111 +lon_0=35.2045169444444 +k=1.0000067 +x_0=219529.584 +y_0=626907.39 +ellps=GRS80 +units=m +no_defs +type=crs"
+      );
+    }
+
     function initGovMap() {
+      setupProjection();
       loadSettings();
       loadRecentSearches();
 
@@ -877,7 +965,8 @@
             updateDashboard();
             renderResultsTable();
             renderRecentSearches();
-            setStatus("המפה נטענה. אפשר לחפש ישוב או ללחוץ על מדוד.");
+            updateNavigationBox();
+            setStatus("המפה נטענה. אפשר להשתמש ב־GPS ולנווט למקלט הקרוב.");
             print("GOVMAP loaded", { ready: true, layer: getLayerName() });
           },
 
@@ -899,7 +988,7 @@
 
       button.classList.add("active");
 
-      ["dashboard", "search", "results", "settings"].forEach(function (name) {
+      ["dashboard", "navigate", "search", "results", "settings"].forEach(function (name) {
         document.getElementById("tab-" + name).classList.add("hidden");
       });
 
@@ -1078,6 +1167,98 @@
         setStatus("לא הצלחתי להסתיר את השכבה.", true);
         print("Hide layer error", normalizeError(error));
       }
+    }
+
+    async function useMyLocation() {
+      if (!navigator.geolocation) {
+        setStatus("הדפדפן לא תומך ב־GPS.", true);
+        return null;
+      }
+
+      setStatus("מבקש מיקום GPS...");
+
+      return new Promise(function (resolve) {
+        navigator.geolocation.getCurrentPosition(
+          async function (position) {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            const accuracy = position.coords.accuracy;
+
+            const itm = wgs84ToItm(lat, lon);
+
+            if (!itm || !isValidIsraelGridPoint(itm)) {
+              setStatus("המיקום שהתקבל לא נמצא בתחום ישראל או לא הומר נכון.", true);
+              resolve(null);
+              return;
+            }
+
+            state.myLocation = {
+              lat,
+              lon,
+              accuracy,
+              x: itm.x,
+              y: itm.y
+            };
+
+            document.getElementById("manualX").value = Math.round(itm.x);
+            document.getElementById("manualY").value = Math.round(itm.y);
+
+            govmap.zoomToXY({
+              x: itm.x,
+              y: itm.y,
+              level: 9,
+              marker: true
+            });
+
+            await drawMyLocationPoint(state.myLocation);
+
+            updateMyLocationBox();
+            updateDashboard();
+
+            setStatus("המיקום שלך התקבל בהצלחה.");
+            print("GPS location", state.myLocation);
+
+            resolve(state.myLocation);
+          },
+          function (error) {
+            setStatus("לא התקבל מיקום GPS. בדוק הרשאות מיקום בדפדפן.", true);
+            print("GPS error", normalizeError(error));
+            resolve(null);
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 12000,
+            maximumAge: 15000
+          }
+        );
+      });
+    }
+
+    async function useMyLocationAndFindShelter() {
+      const location = await useMyLocation();
+
+      if (!location) return;
+
+      await runNearestSearchFromPoint({
+        x: location.x,
+        y: location.y
+      });
+    }
+
+    function updateMyLocationBox() {
+      const box = document.getElementById("myLocationBox");
+
+      if (!state.myLocation) {
+        box.textContent = "אין מיקום GPS עדיין.";
+        return;
+      }
+
+      box.innerHTML =
+        "<strong>מיקום GPS:</strong><br>" +
+        "Lat: " + state.myLocation.lat.toFixed(6) + "<br>" +
+        "Lon: " + state.myLocation.lon.toFixed(6) + "<br>" +
+        "X: " + Math.round(state.myLocation.x) + " · Y: " + Math.round(state.myLocation.y) + "<br>" +
+        "דיוק משוער: " + Math.round(state.myLocation.accuracy || 0) + " מטר";
     }
 
     function handleSettlementEnter(event) {
@@ -1351,6 +1532,7 @@
 
           updateDashboard();
           renderResultsTable();
+          updateNavigationBox();
 
           document.getElementById("nearestResult").innerHTML =
             "לא נמצאו מקלטים בטווח החיפוש שנבדק.";
@@ -1366,7 +1548,10 @@
         state.lastRadius = searchResult.radius;
         state.lastLayerUsed = searchResult.layerName;
 
+        addLatLonToNearest();
+
         updateNearestResult(clicked, searchResult.nearest, searchResult);
+        updateNavigationBox();
         renderResultsTable();
         updateDashboard();
 
@@ -1386,10 +1571,7 @@
         });
 
         setStatus(
-          "נמצא המקלט הקרוב וצויר קו אליו. בקשות: " +
-          state.requestsCounter +
-          " | Cache: " +
-          state.cacheHits
+          "נמצא המקלט הקרוב וצויר קו אליו. אפשר לפתוח ניווט ב־Google Maps."
         );
 
         resetGovMapTool();
@@ -2227,8 +2409,174 @@
       );
     }
 
+    function itmToWgs84(x, y) {
+      if (!window.proj4) return null;
+
+      try {
+        const result = proj4(ITM, WGS84, [Number(x), Number(y)]);
+
+        return {
+          lon: result[0],
+          lat: result[1]
+        };
+      } catch (error) {
+        print("ITM to WGS84 conversion error", normalizeError(error));
+        return null;
+      }
+    }
+
+    function wgs84ToItm(lat, lon) {
+      if (!window.proj4) return null;
+
+      try {
+        const result = proj4(WGS84, ITM, [Number(lon), Number(lat)]);
+
+        return {
+          x: result[0],
+          y: result[1]
+        };
+      } catch (error) {
+        print("WGS84 to ITM conversion error", normalizeError(error));
+        return null;
+      }
+    }
+
+    function addLatLonToNearest() {
+      if (!state.lastNearest) return;
+
+      const converted = itmToWgs84(state.lastNearest.x, state.lastNearest.y);
+
+      if (!converted) return;
+
+      state.lastNearest.lat = converted.lat;
+      state.lastNearest.lon = converted.lon;
+    }
+
+    function buildGoogleMapsNavigationUrl(mode) {
+      if (!state.lastNearest) {
+        return "";
+      }
+
+      if (!Number.isFinite(state.lastNearest.lat) || !Number.isFinite(state.lastNearest.lon)) {
+        addLatLonToNearest();
+      }
+
+      if (!Number.isFinite(state.lastNearest.lat) || !Number.isFinite(state.lastNearest.lon)) {
+        return "";
+      }
+
+      const destination = state.lastNearest.lat + "," + state.lastNearest.lon;
+
+      const params = new URLSearchParams();
+      params.set("api", "1");
+      params.set("destination", destination);
+      params.set("destination_place_id", "");
+      params.set("dir_action", "navigate");
+
+      if (mode) {
+        params.set("travelmode", mode);
+      }
+
+      if (
+        state.myLocation &&
+        Number.isFinite(state.myLocation.lat) &&
+        Number.isFinite(state.myLocation.lon)
+      ) {
+        params.set("origin", state.myLocation.lat + "," + state.myLocation.lon);
+      }
+
+      return "https://www.google.com/maps/dir/?" + params.toString();
+    }
+
+    function openGoogleMapsNavigation(mode) {
+      const url = buildGoogleMapsNavigationUrl(mode);
+
+      if (!url) {
+        setStatus("אין עדיין מקלט עם קואורדינטות לניווט.", true);
+        return;
+      }
+
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+
+    async function copyNavigationLink(mode) {
+      const url = buildGoogleMapsNavigationUrl(mode);
+
+      if (!url) {
+        setStatus("אין קישור ניווט להעתקה.", true);
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(url);
+        setStatus("קישור הניווט הועתק.");
+      } catch {
+        setStatus("לא הצלחתי להעתיק. פתח את הניווט והעתק משם.", true);
+      }
+    }
+
+    async function shareShelter() {
+      const url = buildGoogleMapsNavigationUrl("walking");
+
+      if (!url || !state.lastNearest) {
+        setStatus("אין מקלט לשיתוף.", true);
+        return;
+      }
+
+      const text =
+        "המקלט הקרוב: " +
+        state.lastNearest.name +
+        " | מרחק אווירי: " +
+        formatDistance(state.lastNearest.distanceMeters);
+
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: "ShelterMap - מקלט קרוב",
+            text,
+            url
+          });
+          return;
+        } catch {
+          return;
+        }
+      }
+
+      await copyNavigationLink("walking");
+    }
+
+    function updateNavigationBox() {
+      const box = document.getElementById("navigationBox");
+
+      if (!box) return;
+
+      if (!state.lastNearest) {
+        box.textContent = "עדיין אין מקלט לניווט. לחץ על “השתמש במיקום שלי ומצא מקלט”.";
+        return;
+      }
+
+      addLatLonToNearest();
+
+      box.innerHTML =
+        "<strong>יעד ניווט:</strong><br>" +
+        escapeHtml(state.lastNearest.name) + "<br><br>" +
+        "<strong>מרחק אווירי:</strong><br>" +
+        formatDistance(state.lastNearest.distanceMeters) + "<br><br>" +
+        "<strong>Google Maps:</strong><br>" +
+        "Lat: " + Number(state.lastNearest.lat).toFixed(6) + "<br>" +
+        "Lon: " + Number(state.lastNearest.lon).toFixed(6) + "<br><br>" +
+        (state.myLocation
+          ? "<strong>נקודת מוצא:</strong><br>מיקום ה־GPS שלך"
+          : "<strong>נקודת מוצא:</strong><br>Google Maps יבקש לבחור מיקום מוצא");
+    }
+
     async function drawResult(clicked, nearest) {
       await drawClickedPoint(clicked, true);
+
+      if (state.myLocation) {
+        await drawMyLocationPoint(state.myLocation);
+      }
+
       await drawNearestShelterPoint(nearest);
       await drawLineToShelter(clicked, nearest);
     }
@@ -2240,6 +2588,7 @@
 
       document.getElementById("nearestResult").textContent = "עדיין לא נבחרה נקודה.";
       renderResultsTable();
+      updateNavigationBox();
       updateDashboard();
       setProgress(0, 1);
 
@@ -2276,13 +2625,45 @@
         clearExisting: shouldClear,
         showBubble: true,
         data: {
-          tooltips: ["הנקודה שנבחרה"],
-          headers: ["הנקודה שנבחרה"],
+          tooltips: ["נקודת החיפוש"],
+          headers: ["נקודת החיפוש"],
           bubbleHTML:
             "<div style='direction:rtl;text-align:right;font-family:Arial;padding:8px'>" +
-            "<b>הנקודה שנבחרה</b><br>" +
+            "<b>נקודת החיפוש</b><br>" +
             "X: " + Math.round(clicked.x) + "<br>" +
             "Y: " + Math.round(clicked.y) +
+            "</div>",
+          bubbleHTMLParameters: [[]]
+        }
+      }));
+    }
+
+    function drawMyLocationPoint(location) {
+      return toPromise(govmap.displayGeometries({
+        circleGeometries: [
+          {
+            x: location.x,
+            y: location.y,
+            radius: Math.max(60, Math.min(250, Number(location.accuracy || 70)))
+          }
+        ],
+        names: ["my_location"],
+        geometryType: govmap.geometryType.CIRCLE,
+        defaultSymbol: {
+          outlineColor: [56, 189, 248, 1],
+          outlineWidth: 4,
+          fillColor: [56, 189, 248, 0.25]
+        },
+        symbols: [],
+        clearExisting: false,
+        showBubble: true,
+        data: {
+          tooltips: ["המיקום שלי"],
+          headers: ["המיקום שלי"],
+          bubbleHTML:
+            "<div style='direction:rtl;text-align:right;font-family:Arial;padding:8px'>" +
+            "<b>המיקום שלי</b><br>" +
+            "דיוק: " + Math.round(location.accuracy || 0) + " מטר" +
             "</div>",
           bubbleHTMLParameters: [[]]
         }
@@ -2314,7 +2695,7 @@
           bubbleHTML:
             "<div style='direction:rtl;text-align:right;font-family:Arial;padding:8px'>" +
             "<b>" + escapeHtml(nearest.name) + "</b><br>" +
-            "מרחק: " + formatDistance(nearest.distanceMeters) + "<br>" +
+            "מרחק אווירי: " + formatDistance(nearest.distanceMeters) + "<br>" +
             "ObjectId: " + escapeHtml(nearest.objectId || "—") +
             "</div>",
           bubbleHTMLParameters: [[]]
@@ -2354,6 +2735,8 @@
     }
 
     function updateNearestResult(clicked, nearest, searchResult) {
+      addLatLonToNearest();
+
       document.getElementById("nearestResult").innerHTML =
         "<strong>המקלט הקרוב ביותר:</strong><br>" +
         escapeHtml(nearest.name) +
@@ -2365,8 +2748,10 @@
         "<strong>נקודת הבדיקה:</strong><br>" +
         "X: " + Math.round(clicked.x) + " · Y: " + Math.round(clicked.y) + "<br><br>" +
         "<strong>המקלט:</strong><br>" +
-        "X: " + Math.round(nearest.x) + " · Y: " + Math.round(nearest.y) +
-        (nearest.objectId ? "<br><br><strong>ObjectId:</strong><br>" + escapeHtml(nearest.objectId) : "");
+        "X: " + Math.round(nearest.x) + " · Y: " + Math.round(nearest.y) + "<br>" +
+        "Lat: " + Number(nearest.lat).toFixed(6) + " · Lon: " + Number(nearest.lon).toFixed(6) +
+        (nearest.objectId ? "<br><br><strong>ObjectId:</strong><br>" + escapeHtml(nearest.objectId) : "") +
+        "<br><br><button class='greenBtn' onclick=\"openGoogleMapsNavigation('walking')\">פתח ניווט רגלי ב־Google Maps</button>";
     }
 
     function updateDashboard() {
@@ -2385,7 +2770,8 @@
       document.getElementById("topRequestsCount").textContent =
         state.requestsCounter || 0;
 
-      document.getElementById("cacheSize").textContent = searchCache.size;
+      document.getElementById("gpsState").textContent =
+        state.myLocation ? "פעיל" : "לא פעיל";
 
       document.getElementById("lastSearchName").textContent =
         state.lastSettlementName ? state.lastSettlementName : "—";
