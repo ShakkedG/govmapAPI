@@ -326,6 +326,13 @@
       font-size: 12px;
     }
 
+    .smallTextarea {
+      min-height: 74px;
+      max-height: 130px;
+      line-height: 1.45;
+      font-size: 13px;
+    }
+
     button {
       width: 100%;
       border: none;
@@ -752,7 +759,7 @@
       <div class="logo">SM</div>
       <div>
         <div class="brandTitle">ShelterMap</div>
-        <div class="brandSub">ניווט למקלט הקרוב ביותר</div>
+        <div class="brandSub">ניווט ליעד הקרוב ביותר</div>
       </div>
     </div>
 
@@ -791,7 +798,7 @@
       <div class="panelBody">
         <section id="tab-dashboard">
           <div class="card">
-            <div class="cardTitle">מציאת מקלט קרוב</div>
+            <div class="cardTitle">מציאת יעד קרוב</div>
 
             <button class="greenBtn" onclick="useMyLocationAndFindShelter()">השתמש במיקום שלי ומצא מקלט</button>
 
@@ -801,7 +808,7 @@
             </div>
 
             <div class="row">
-              <button class="darkBtn" onclick="showShelterLayer()">הצג שכבת מקלטים</button>
+              <button class="darkBtn" onclick="showShelterLayer()">הצג שכבות</button>
               <button class="dangerBtn" onclick="cancelSearch()">בטל חיפוש</button>
             </div>
 
@@ -829,7 +836,7 @@
 
             <div class="statsGrid">
               <div class="statCard">
-                <div class="statLabel">שכבת חיפוש</div>
+                <div class="statLabel">שכבות חיפוש</div>
                 <div class="statValue blue" id="activeLayerTitle">—</div>
               </div>
 
@@ -883,7 +890,7 @@
             </div>
 
             <div id="navigationBox" class="result" style="margin-top:10px;">
-              עדיין אין מקלט לניווט. לחץ על “השתמש במיקום שלי ומצא מקלט”.
+              עדיין אין יעד לניווט. לחץ על “השתמש במיקום שלי ומצא מקלט”.
             </div>
 
             <div class="success">
@@ -955,7 +962,7 @@
 
             <div class="row">
               <button class="blueBtn" onclick="zoomManual()">עבור לנקודה</button>
-              <button class="primary" onclick="findFromManualPoint()">מצא מקלט קרוב</button>
+              <button class="primary" onclick="findFromManualPoint()">מצא יעד קרוב</button>
             </div>
           </div>
         </section>
@@ -971,7 +978,7 @@
               <table>
                 <thead>
                   <tr>
-                    <th>מקלט</th>
+                    <th>יעד</th>
                     <th>מרחק</th>
                     <th>ObjectId</th>
                     <th>פעולה</th>
@@ -996,15 +1003,44 @@
 
         <section id="tab-settings" class="hidden">
           <div class="card">
-            <div class="cardTitle">הגדרות שכבת מקלטים</div>
+            <div class="cardTitle">שכבות GOVMAP</div>
 
-            <label for="layerInput">שם שכבה</label>
-            <input id="layerInput" value="BOMBSHELTERS" onchange="saveSettings()" />
+            <label for="layerInput">הוסף שכבה לפי שם / מספר</label>
+            <input id="layerInput" value="BOMBSHELTERS" placeholder="לדוגמה: BOMBSHELTERS או 417" onchange="saveSettings()" />
+
+            <div class="row">
+              <button class="greenBtn" onclick="addLayerFromInput(true)">הוסף לחיפוש</button>
+              <button class="blueBtn" onclick="addLayerFromInput(false)">הוסף להצגה בלבד</button>
+            </div>
 
             <div class="pillGrid">
               <button class="pill" onclick="setLayerName('BOMBSHELTERS')">BOMBSHELTERS</button>
-              <button class="pill" onclick="setLayerName('417')">417</button>
+              <button class="pill" onclick="setLayerName('417')">שכבה 417</button>
             </div>
+
+            <label for="layersInput">שכבות שמשתתפות בחיפוש הקרוב</label>
+            <textarea id="layersInput" class="smallTextarea" onchange="saveSettings()" placeholder="כל שורה = שכבה אחת">BOMBSHELTERS</textarea>
+
+            <label for="visibleLayersInput">שכבות להצגה על המפה</label>
+            <textarea id="visibleLayersInput" class="smallTextarea" onchange="saveSettings()" placeholder="כל שורה = שכבה אחת">BOMBSHELTERS</textarea>
+
+            <div class="row">
+              <button class="greenBtn" onclick="showShelterLayer()">הצג שכבות</button>
+              <button class="darkBtn" onclick="hideShelterLayer()">הסתר שכבות</button>
+            </div>
+
+            <div class="row">
+              <button class="darkBtn" onclick="copyLayerConfig()">העתק רשימת שכבות</button>
+              <button class="dangerBtn" onclick="clearLayerLists()">נקה רשימה</button>
+            </div>
+
+            <div class="warning">
+              אפשר להוסיף כמעט כל שכבת GOVMAP שיש לה גיאומטריה. אם זו שכבת פוליגונים/קווים, האתר יחשב נקודת מרכז משוערת וימדוד אליה קו אווירי.
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="cardTitle">הגדרות חיפוש</div>
 
             <label for="maxDistanceSelect">מרחק חיפוש מקסימלי</label>
             <select id="maxDistanceSelect" onchange="saveSettings()">
@@ -1030,11 +1066,6 @@
               <option value="3">3</option>
               <option value="4">4 — מהיר יותר</option>
             </select>
-
-            <div class="row">
-              <button class="greenBtn" onclick="showShelterLayer()">הצג שכבה</button>
-              <button class="darkBtn" onclick="hideShelterLayer()">הסתר שכבה</button>
-            </div>
           </div>
 
           <div class="card">
@@ -1061,7 +1092,7 @@
             </div>
 
             <div class="warning">
-              בטלפון עדיף להתחיל עם 20 ק״מ, מצב מאוזן ו־2 בקשות במקביל. אם הכול מהיר ויציב, אפשר להעלות.
+              ככל שמוסיפים יותר שכבות לחיפוש, יהיו יותר בקשות ל־GOVMAP. בטלפון עדיף להשאיר 1–3 שכבות פעילות לחיפוש.
             </div>
           </div>
         </section>
@@ -1088,10 +1119,11 @@
     const GOVMAP_TOKEN = "ede9a5fd-7c23-432f-8ffb-d85feffa3f3c";
 
     const DEFAULT_LAYER_NAME = "BOMBSHELTERS";
+    const DEFAULT_LAYER_LIST = ["BOMBSHELTERS"];
     const LAYER_FALLBACKS = ["BOMBSHELTERS", "417"];
     const GOVMAP_MAX_SAFE_RADIUS = 3000;
 
-    const SETTINGS_KEY = "sheltermap_settings_mobile_v4";
+    const SETTINGS_KEY = "sheltermap_settings_multilayer_v5";
     const RECENT_SEARCHES_KEY = "sheltermap_recent_searches_v1";
 
     const CACHE_MAX_ITEMS = 850;
@@ -1144,8 +1176,8 @@
           center: { x: 176000, y: 657000 },
           level: isMobile() ? 4 : 3,
           background: document.getElementById("backgroundSelect").value || "1",
-          layers: [getLayerName()],
-          visibleLayers: [getLayerName()],
+          layers: getVisibleLayerNames(),
+          visibleLayers: getVisibleLayerNames(),
           showXY: true,
           identifyOnClick: false,
           layersMode: 2,
@@ -1160,7 +1192,7 @@
             updateNavigationBox();
             updateMyLocationBox();
             setStatus("המפה נטענה. בטלפון מומלץ ללחוץ GPS ואז נווט.");
-            print("GOVMAP loaded", { ready: true, layer: getLayerName(), mobile: isMobile() });
+            print("GOVMAP loaded", { ready: true, searchLayers: getLayerOrder(), visibleLayers: getVisibleLayerNames(), mobile: isMobile() });
           },
 
           onError: function (error) {
@@ -1302,23 +1334,35 @@
     function loadSettings() {
       try {
         const raw = localStorage.getItem(SETTINGS_KEY);
-        if (!raw) return;
+        if (!raw) {
+          syncLayerInputFallbacks();
+          return;
+        }
 
         const settings = JSON.parse(raw);
 
         if (settings.layerName) document.getElementById("layerInput").value = settings.layerName;
+        if (settings.layersText) document.getElementById("layersInput").value = settings.layersText;
+        if (settings.visibleLayersText) document.getElementById("visibleLayersInput").value = settings.visibleLayersText;
         if (settings.maxDistance) document.getElementById("maxDistanceSelect").value = settings.maxDistance;
         if (settings.quality) document.getElementById("gridQualitySelect").value = settings.quality;
         if (settings.parallel) document.getElementById("parallelSelect").value = settings.parallel;
         if (settings.background) document.getElementById("backgroundSelect").value = settings.background;
+
+        syncLayerInputFallbacks();
       } catch (error) {
         console.warn("Settings load failed", error);
+        syncLayerInputFallbacks();
       }
     }
 
     function saveSettings() {
+      syncLayerInputFallbacks();
+
       const settings = {
         layerName: getLayerName(),
+        layersText: document.getElementById("layersInput").value,
+        visibleLayersText: document.getElementById("visibleLayersInput").value,
         maxDistance: document.getElementById("maxDistanceSelect").value,
         quality: document.getElementById("gridQualitySelect").value,
         parallel: document.getElementById("parallelSelect").value,
@@ -1332,6 +1376,8 @@
     function resetSettings() {
       localStorage.removeItem(SETTINGS_KEY);
       document.getElementById("layerInput").value = DEFAULT_LAYER_NAME;
+      document.getElementById("layersInput").value = DEFAULT_LAYER_LIST.join("\n");
+      document.getElementById("visibleLayersInput").value = DEFAULT_LAYER_LIST.join("\n");
       document.getElementById("maxDistanceSelect").value = "20000";
       document.getElementById("gridQualitySelect").value = "balanced";
       document.getElementById("parallelSelect").value = "2";
@@ -1340,20 +1386,96 @@
       setStatus("ההגדרות אופסו.");
     }
 
+    function parseLayerText(value) {
+      return Array.from(new Set(
+        String(value || "")
+          .split(/[\n,;]+/)
+          .map(function (x) { return x.trim(); })
+          .filter(Boolean)
+      ));
+    }
+
+    function getLayerNamesFromTextarea(id, fallback) {
+      const el = document.getElementById(id);
+      const layers = parseLayerText(el ? el.value : "");
+      return layers.length ? layers : fallback.slice();
+    }
+
+    function syncLayerInputFallbacks() {
+      const searchEl = document.getElementById("layersInput");
+      const visibleEl = document.getElementById("visibleLayersInput");
+
+      if (searchEl && !searchEl.value.trim()) searchEl.value = DEFAULT_LAYER_LIST.join("\n");
+      if (visibleEl && !visibleEl.value.trim()) visibleEl.value = getLayerOrder().join("\n");
+    }
+
     function getLayerName() {
-      return document.getElementById("layerInput").value.trim() || DEFAULT_LAYER_NAME;
+      const firstSearchLayer = getLayerNamesFromTextarea("layersInput", DEFAULT_LAYER_LIST)[0];
+      return firstSearchLayer || document.getElementById("layerInput").value.trim() || DEFAULT_LAYER_NAME;
     }
 
     function setLayerName(name) {
-      document.getElementById("layerInput").value = name;
-      state.lastLayerUsed = name;
+      const clean = String(name || "").trim();
+      if (!clean) return;
+
+      document.getElementById("layerInput").value = clean;
+      addLayerToTextarea("layersInput", clean);
+      addLayerToTextarea("visibleLayersInput", clean);
+      state.lastLayerUsed = clean;
       saveSettings();
       updateDashboard();
-      setStatus("נבחרה שכבה: " + name);
+      setStatus("נוספה שכבה: " + clean);
     }
 
     function getLayerOrder() {
-      return Array.from(new Set([getLayerName()].concat(LAYER_FALLBACKS).filter(Boolean)));
+      return getLayerNamesFromTextarea("layersInput", DEFAULT_LAYER_LIST);
+    }
+
+    function getVisibleLayerNames() {
+      return getLayerNamesFromTextarea("visibleLayersInput", getLayerOrder());
+    }
+
+    function addLayerToTextarea(id, layerName) {
+      const el = document.getElementById(id);
+      if (!el) return;
+
+      const layers = parseLayerText(el.value);
+      if (!layers.includes(layerName)) layers.push(layerName);
+      el.value = layers.join("\n");
+    }
+
+    function addLayerFromInput(includeInSearch) {
+      const layerName = document.getElementById("layerInput").value.trim();
+
+      if (!layerName) {
+        setStatus("כתוב שם או מספר שכבה קודם.", true);
+        return;
+      }
+
+      if (includeInSearch) addLayerToTextarea("layersInput", layerName);
+      addLayerToTextarea("visibleLayersInput", layerName);
+      state.lastLayerUsed = layerName;
+      saveSettings();
+      setStatus(includeInSearch ? "השכבה נוספה לחיפוש ולהצגה." : "השכבה נוספה להצגה בלבד.");
+    }
+
+    function clearLayerLists() {
+      document.getElementById("layersInput").value = "";
+      document.getElementById("visibleLayersInput").value = "";
+      saveSettings();
+      setStatus("רשימות השכבות נוקו. אם תשאיר ריק, האתר יחזור ל־BOMBSHELTERS.");
+    }
+
+    async function copyLayerConfig() {
+      const text = "שכבות חיפוש:\n" + getLayerOrder().join("\n") + "\n\nשכבות הצגה:\n" + getVisibleLayerNames().join("\n");
+
+      try {
+        await navigator.clipboard.writeText(text);
+        setStatus("רשימת השכבות הועתקה.");
+      } catch {
+        print("Layer config", text);
+        setStatus("לא הצלחתי להעתיק, הצגתי את הרשימה ב־Debug.", true);
+      }
     }
 
     function getMaxDistance() {
@@ -1378,30 +1500,30 @@
     function showShelterLayer() {
       if (!requireReady()) return;
 
-      const layerName = getLayerName();
+      const layers = getVisibleLayerNames();
 
       try {
-        govmap.setVisibleLayers([layerName], []);
-        state.lastLayerUsed = layerName;
+        govmap.setVisibleLayers(layers, []);
+        state.lastLayerUsed = layers.join(", ");
         updateDashboard();
-        setStatus("שכבת המקלטים מוצגת: " + layerName);
+        setStatus("מוצגות " + layers.length + " שכבות: " + layers.join(", "));
       } catch (error) {
-        setStatus("לא הצלחתי להציג את השכבה. נסה BOMBSHELTERS או 417.", true);
-        print("Show layer error", normalizeError(error));
+        setStatus("לא הצלחתי להציג את השכבות. בדוק שהשמות/מספרים קיימים ב־GOVMAP.", true);
+        print("Show layers error", { error: normalizeError(error), layers });
       }
     }
 
     function hideShelterLayer() {
       if (!requireReady()) return;
 
-      const layerName = getLayerName();
+      const layers = getVisibleLayerNames();
 
       try {
-        govmap.setVisibleLayers([], [layerName]);
-        setStatus("השכבה הוסתרה: " + layerName);
+        govmap.setVisibleLayers([], layers);
+        setStatus("השכבות הוסתרו: " + layers.join(", "));
       } catch (error) {
-        setStatus("לא הצלחתי להסתיר את השכבה.", true);
-        print("Hide layer error", normalizeError(error));
+        setStatus("לא הצלחתי להסתיר את השכבות.", true);
+        print("Hide layers error", { error: normalizeError(error), layers });
       }
     }
 
@@ -1778,7 +1900,7 @@
       document.getElementById("manualY").value = Math.round(clicked.y);
 
       setProgress(0, 1);
-      setStatus("מחפש מקלט קרוב...");
+      setStatus("מחפש יעד קרוב...");
 
       try {
         const searchResult = await findNearestShelterOptimized(clicked, myToken);
@@ -1795,9 +1917,9 @@
           updateNavigationBox();
 
           document.getElementById("nearestResult").innerHTML =
-            "לא נמצאו מקלטים בטווח החיפוש שנבדק.";
+            "לא נמצאו שכבות בטווח החיפוש שנבדק.";
 
-          setStatus("לא נמצאו מקלטים סביב הנקודה.", true);
+          setStatus("לא נמצאו שכבות סביב הנקודה.", true);
           print("No shelter found", { clicked, searchResult });
           resetGovMapTool();
           return;
@@ -1830,7 +1952,7 @@
           rawResponse: searchResult.rawResponse
         });
 
-        setStatus("נמצא המקלט הקרוב וצויר קו אליו. אפשר לפתוח ניווט ב־Google Maps.");
+        setStatus("נמצא היעד הקרוב וצויר קו אליו. אפשר לפתוח ניווט ב־Google Maps.");
 
         resetGovMapTool();
 
@@ -1843,7 +1965,7 @@
       } catch (error) {
         if (myToken !== state.searchToken) return;
 
-        setStatus("שגיאה בחיפוש מקלטים.", true);
+        setStatus("שגיאה בחיפוש שכבות.", true);
         print("Nearest shelter search error", normalizeError(error));
         resetGovMapTool();
       }
@@ -1976,6 +2098,12 @@
 
         if (result.candidates.length) {
           usedLayer = layerName;
+
+          result.candidates.forEach(function (candidate) {
+            candidate.layerName = layerName;
+            candidate.layerTitle = layerName;
+          });
+
           all = all.concat(result.candidates);
         }
       }
@@ -2793,12 +2921,12 @@
       const url = buildGoogleMapsNavigationUrl("walking");
 
       if (!url || !state.lastNearest) {
-        setStatus("אין מקלט לשיתוף.", true);
+        setStatus("אין יעד לשיתוף.", true);
         return;
       }
 
       const text =
-        "המקלט הקרוב: " +
+        "היעד הקרוב: " +
         state.lastNearest.name +
         " | מרחק אווירי: " +
         formatDistance(state.lastNearest.distanceMeters);
@@ -2806,7 +2934,7 @@
       if (navigator.share) {
         try {
           await navigator.share({
-            title: "ShelterMap - מקלט קרוב",
+            title: "ShelterMap - יעד קרוב",
             text,
             url
           });
@@ -2825,7 +2953,7 @@
       if (!box) return;
 
       if (!state.lastNearest) {
-        box.textContent = "עדיין אין מקלט לניווט. לחץ על “השתמש במיקום שלי ומצא מקלט”.";
+        box.textContent = "עדיין אין יעד לניווט. לחץ על “השתמש במיקום שלי ומצא מקלט”.";
         return;
       }
 
@@ -3012,16 +3140,16 @@
       addLatLonToNearest();
 
       document.getElementById("nearestResult").innerHTML =
-        "<strong>המקלט הקרוב ביותר:</strong><br>" +
+        "<strong>היעד הקרוב ביותר:</strong><br>" +
         escapeHtml(nearest.name) +
         "<div class='distanceBig'>" + formatDistance(nearest.distanceMeters) + "</div>" +
         "<strong>שכבה:</strong><br>" +
-        escapeHtml(searchResult.layerName) + "<br><br>" +
+        escapeHtml(nearest.layerName || searchResult.layerName) + "<br><br>" +
         "<strong>טווח שבו נמצא:</strong><br>" +
         formatDistance(searchResult.radius) + "<br><br>" +
         "<strong>נקודת הבדיקה:</strong><br>" +
         "X: " + Math.round(clicked.x) + " · Y: " + Math.round(clicked.y) + "<br><br>" +
-        "<strong>המקלט:</strong><br>" +
+        "<strong>היעד:</strong><br>" +
         "X: " + Math.round(nearest.x) + " · Y: " + Math.round(nearest.y) + "<br>" +
         "Lat: " + Number(nearest.lat).toFixed(6) + " · Lon: " + Number(nearest.lon).toFixed(6) +
         (nearest.objectId ? "<br><br><strong>ObjectId:</strong><br>" + escapeHtml(nearest.objectId) : "") +
@@ -3029,7 +3157,7 @@
     }
 
     function updateDashboard() {
-      document.getElementById("activeLayerTitle").textContent = state.lastLayerUsed || getLayerName();
+      document.getElementById("activeLayerTitle").textContent = getLayerOrder().length === 1 ? getLayerOrder()[0] : (getLayerOrder().length + " שכבות");
       document.getElementById("measureState").textContent = state.measuring ? "פעיל" : "כבוי";
 
       document.getElementById("lastRadius").textContent =
@@ -3064,7 +3192,8 @@
           candidate.name,
           candidate.address,
           candidate.description,
-          candidate.objectId
+          candidate.objectId,
+          candidate.layerName
         ].join(" ").toLowerCase();
 
         return !search || text.includes(search);
@@ -3085,6 +3214,7 @@
         tr.innerHTML =
           "<td>" +
             "<strong>" + escapeHtml(candidate.name) + "</strong>" +
+            "<br><span style='color:#38bdf8'>" + escapeHtml(candidate.layerName || "—") + "</span>" +
             (candidate.address ? "<br><span style='color:#94a3b8'>" + escapeHtml(candidate.address) + "</span>" : "") +
           "</td>" +
           "<td dir='ltr'>" + formatDistance(candidate.distanceMeters) + "</td>" +
