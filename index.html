@@ -1,3351 +1,1770 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#08111f" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="ShelterMap" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>GovMap נקודות – איתור נקודה קרובה</title>
 
-  <title>ShelterMap Navigation</title>
+  <!--
+    קובץ יחיד להחלפה ב-index.html.
+    חשוב:
+    1) ה-token חייב להיות מאושר לדומיין שבו האתר רץ.
+    2) אם שכבת המקלטים שלך אינה נקראת "225287" ב-API, החלף את id בשכבה הראשונה במערך POINT_LAYERS.
+    3) הוספת/מחיקת שכבות נקודה מתבצעת רק דרך POINT_LAYERS.
+  -->
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.min.js"></script>
-
-  <script
-    src="https://www.govmap.gov.il/govmap/api/govmap.api.js"
-    defer
-    onload="initGovMap()">
-  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.12.1/proj4.min.js"></script>
+  <script src="https://www.govmap.gov.il/govmap/api/govmap.api.js" defer onload="initGovMap()"></script>
 
   <style>
     :root {
-      --bg: #08111f;
-      --panel: rgba(15, 23, 42, 0.96);
-      --panel2: rgba(15, 23, 42, 0.82);
-      --card: rgba(30, 41, 59, 0.94);
-      --dark: rgba(2, 6, 23, 0.66);
-      --border: rgba(148, 163, 184, 0.24);
-      --text: #f8fafc;
-      --muted: #94a3b8;
-      --blue: #38bdf8;
-      --green: #22c55e;
-      --red: #ef4444;
-      --yellow: #facc15;
-      --orange: #fb923c;
-      --shadow: 0 18px 45px rgba(0, 0, 0, 0.36);
-      --radius: 18px;
+      --bg: #f6f7fb;
+      --panel: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --good: #16a34a;
+      --warn: #f59e0b;
+      --bad: #dc2626;
+      --shadow: 0 18px 50px rgba(15, 23, 42, 0.14);
+      --radius: 22px;
       --safe-bottom: env(safe-area-inset-bottom, 0px);
-      --safe-top: env(safe-area-inset-top, 0px);
     }
 
     * {
       box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
     }
 
     html,
     body {
-      width: 100%;
       height: 100%;
       margin: 0;
       overflow: hidden;
-      font-family: Arial, "Noto Sans Hebrew", sans-serif;
       background: var(--bg);
       color: var(--text);
-      overscroll-behavior: none;
+      font-family:
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Arial,
+        sans-serif;
     }
 
-    #map {
-      position: fixed;
-      inset: 0;
-      width: 100vw;
-      height: 100vh;
-      background: #111827;
-      touch-action: pan-x pan-y;
+    button,
+    input,
+    select {
+      font: inherit;
     }
 
-    .topbar {
-      position: fixed;
-      top: calc(16px + var(--safe-top));
-      right: 16px;
-      left: 16px;
-      z-index: 20;
+    button {
+      cursor: pointer;
+    }
+
+    .app {
+      height: 100%;
       display: grid;
-      grid-template-columns: 360px 1fr 350px;
-      gap: 12px;
-      pointer-events: none;
+      grid-template-columns: 390px 1fr;
+      gap: 0;
+      background: var(--bg);
     }
 
-    .brand,
-    .searchBox,
-    .quickStats,
-    .panel,
-    .status,
-    .floatingActions button,
-    .mobileActionBar {
+    .panel {
+      position: relative;
+      z-index: 10;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
       background: var(--panel);
-      backdrop-filter: blur(14px);
-      border: 1px solid var(--border);
+      border-left: 1px solid var(--line);
       box-shadow: var(--shadow);
+      overflow: hidden;
     }
 
-    .brand,
-    .searchBox,
-    .quickStats {
-      pointer-events: auto;
-      border-radius: var(--radius);
+    .panelHeader {
+      padding: 18px 18px 12px;
+      border-bottom: 1px solid var(--line);
+      background:
+        radial-gradient(circle at top right, rgba(37, 99, 235, 0.13), transparent 35%),
+        #ffffff;
     }
 
-    .brand {
+    .titleRow {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 12px 16px;
-      min-height: 64px;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
     }
 
-    .logo {
-      width: 42px;
-      height: 42px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, #ef4444, #f97316);
-      display: grid;
-      place-items: center;
-      font-weight: 900;
-      color: white;
-      box-shadow: 0 10px 28px rgba(239, 68, 68, 0.35);
-      flex: 0 0 auto;
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
     }
 
-    .brandTitle {
-      font-size: 19px;
-      font-weight: 900;
-      letter-spacing: -0.4px;
-      white-space: nowrap;
-    }
-
-    .brandSub {
-      font-size: 12px;
+    .subtitle {
+      margin: 5px 0 0;
       color: var(--muted);
-      margin-top: 3px;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid #bfdbfe;
+      background: #eff6ff;
+      color: #1e40af;
+      padding: 6px 9px;
+      border-radius: 999px;
+      font-size: 12px;
       white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 260px;
+    }
+
+    .mobileToggle {
+      display: none;
+      width: 44px;
+      height: 44px;
+      border: 0;
+      border-radius: 14px;
+      background: #eff6ff;
+      color: var(--primary);
+      font-size: 20px;
+      font-weight: 800;
     }
 
     .searchBox {
       display: grid;
-      grid-template-columns: 1fr 105px 115px;
+      grid-template-columns: 1fr auto;
       gap: 8px;
-      padding: 10px;
-      align-items: center;
-      min-height: 64px;
+      margin-top: 12px;
     }
 
-    .quickStats {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      overflow: hidden;
-      min-height: 64px;
-    }
-
-    .miniStat {
-      padding: 11px 12px;
-      background: rgba(30, 41, 59, 0.65);
-      border-left: 1px solid rgba(148, 163, 184, 0.15);
-    }
-
-    .miniStatLabel {
-      font-size: 11px;
-      color: var(--muted);
-    }
-
-    .miniStatValue {
-      margin-top: 4px;
-      font-size: 18px;
-      font-weight: 900;
-      direction: ltr;
-      text-align: right;
-    }
-
-    .layout {
-      position: fixed;
-      top: calc(92px + var(--safe-top));
-      right: 16px;
-      bottom: 16px;
-      z-index: 19;
-      width: 460px;
-      pointer-events: none;
-    }
-
-    .panel {
-      pointer-events: auto;
-      height: 100%;
-      border-radius: 24px;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .sheetHandle {
-      display: none;
-      width: 46px;
-      height: 5px;
-      border-radius: 999px;
-      background: rgba(148, 163, 184, 0.45);
-      margin: 9px auto 5px;
-      flex: 0 0 auto;
-    }
-
-    .tabs {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      border-bottom: 1px solid var(--border);
-      background: rgba(2, 6, 23, 0.55);
-      flex: 0 0 auto;
-    }
-
-    .tab {
-      border: none;
-      background: transparent;
-      color: var(--muted);
-      padding: 14px 6px;
-      cursor: pointer;
-      font-weight: 800;
-      border-bottom: 3px solid transparent;
-      font-size: 12px;
-      min-height: 48px;
-    }
-
-    .tab.active {
-      color: var(--text);
-      border-bottom-color: var(--red);
-      background: rgba(239, 68, 68, 0.08);
-    }
-
-    .panelBody {
-      overflow: auto;
-      padding: 14px;
-      -webkit-overflow-scrolling: touch;
-    }
-
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 14px;
-      margin-bottom: 12px;
-    }
-
-    .cardTitle {
-      font-size: 15px;
-      font-weight: 900;
-      margin-bottom: 12px;
-    }
-
-    .muted {
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.5;
-    }
-
-    .statsGrid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-
-    .statCard {
-      background: var(--dark);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 12px;
-    }
-
-    .statLabel {
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .statValue {
-      margin-top: 8px;
-      font-size: 22px;
-      font-weight: 900;
-      direction: ltr;
-      text-align: right;
-    }
-
-    .blue { color: var(--blue); }
-    .green { color: var(--green); }
-    .red { color: var(--red); }
-    .yellow { color: var(--yellow); }
-    .orange { color: var(--orange); }
-
-    label {
-      display: block;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 800;
-      margin: 10px 0 6px;
-    }
-
-    input,
-    select,
-    textarea,
-    button {
-      font-family: inherit;
-    }
-
-    input,
-    select,
-    textarea {
+    .field,
+    .select {
       width: 100%;
-      border: 1px solid rgba(148, 163, 184, 0.35);
-      background: rgba(2, 6, 23, 0.55);
-      color: var(--text);
-      border-radius: 13px;
-      padding: 11px 12px;
-      outline: none;
-      font-size: 16px;
-    }
-
-    input:focus,
-    select:focus,
-    textarea:focus {
-      border-color: var(--blue);
-      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
-    }
-
-    textarea {
-      min-height: 220px;
-      direction: ltr;
-      text-align: left;
-      resize: vertical;
-      font-family: Consolas, monospace;
-      font-size: 12px;
-    }
-
-    .smallTextarea {
-      min-height: 74px;
-      max-height: 130px;
-      line-height: 1.45;
-      font-size: 13px;
-    }
-
-    button {
-      width: 100%;
-      border: none;
-      border-radius: 13px;
-      padding: 11px 12px;
-      background: #334155;
-      color: white;
-      font-size: 13px;
-      font-weight: 900;
-      cursor: pointer;
-      transition: transform 0.08s ease, opacity 0.2s ease;
       min-height: 44px;
-      touch-action: manipulation;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: #fff;
+      color: var(--text);
+      padding: 0 13px;
+      outline: none;
     }
 
-    button:hover {
-      opacity: 0.92;
+    .field:focus,
+    .select:focus {
+      border-color: #93c5fd;
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.14);
     }
 
-    button:active {
-      transform: scale(0.99);
+    .btn {
+      min-height: 44px;
+      border: 0;
+      border-radius: 15px;
+      background: var(--primary);
+      color: #fff;
+      padding: 0 14px;
+      font-weight: 750;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      transition: 0.15s ease;
+      white-space: nowrap;
     }
 
-    button:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
+    .btn:hover {
+      background: var(--primary-dark);
+      transform: translateY(-1px);
     }
 
-    .primary {
-      background: linear-gradient(135deg, #ef4444, #f97316);
+    .btn.secondary {
+      background: #eef2ff;
+      color: #3730a3;
     }
 
-    .blueBtn {
-      background: #0284c7;
+    .btn.secondary:hover {
+      background: #e0e7ff;
     }
 
-    .greenBtn {
+    .btn.ghost {
+      border: 1px solid var(--line);
+      color: var(--text);
+      background: #fff;
+    }
+
+    .btn.ghost:hover {
+      background: #f8fafc;
+    }
+
+    .btn.good {
+      background: var(--good);
+    }
+
+    .btn.good:hover {
       background: #15803d;
     }
 
-    .darkBtn {
-      background: rgba(15, 23, 42, 0.9);
-      border: 1px solid var(--border);
-    }
-
-    .dangerBtn {
-      background: #991b1b;
-    }
-
-    .row {
+    .quickActions {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 8px;
       margin-top: 8px;
     }
 
-    .row3 {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 8px;
-      margin-top: 8px;
-    }
-
-    .pillGrid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 8px;
-    }
-
-    .pill {
-      width: auto;
-      min-height: 36px;
-      padding: 8px 10px;
-      border-radius: 999px;
-      background: rgba(15, 23, 42, 0.86);
-      border: 1px solid var(--border);
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .pill:hover {
-      color: white;
-      border-color: rgba(56, 189, 248, 0.5);
-    }
-
-    .result {
-      background: var(--dark);
-      border: 1px solid var(--border);
+    .originCard {
+      margin-top: 10px;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
       border-radius: 16px;
-      padding: 13px;
-      line-height: 1.65;
-      font-size: 14px;
-      overflow-wrap: anywhere;
+      background: #f8fafc;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.45;
     }
 
-    .result strong {
-      color: white;
+    .originCard strong {
+      color: var(--text);
     }
 
-    .distanceBig {
-      font-size: 30px;
-      font-weight: 900;
-      color: var(--green);
-      margin: 8px 0;
-      direction: ltr;
-      text-align: right;
+    .panelBody {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 14px 18px 18px;
     }
 
-    .warning {
-      color: #fed7aa;
-      background: rgba(251, 146, 60, 0.1);
-      border: 1px solid rgba(251, 146, 60, 0.35);
-      border-radius: 14px;
-      padding: 10px;
-      font-size: 12px;
-      line-height: 1.5;
-      margin-top: 10px;
-    }
-
-    .success {
-      color: #bbf7d0;
-      background: rgba(34, 197, 94, 0.1);
-      border: 1px solid rgba(34, 197, 94, 0.35);
-      border-radius: 14px;
-      padding: 10px;
-      font-size: 12px;
-      line-height: 1.5;
-      margin-top: 10px;
-    }
-
-    .progressWrap {
-      height: 10px;
-      background: rgba(2, 6, 23, 0.55);
-      border: 1px solid var(--border);
-      border-radius: 999px;
+    .section {
+      margin-bottom: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fff;
       overflow: hidden;
+    }
+
+    .sectionHead {
+      padding: 13px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .sectionTitle {
+      font-size: 15px;
+      font-weight: 850;
+    }
+
+    .small {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .sectionBody {
+      padding: 12px 14px;
+    }
+
+    .controlsGrid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .rangeLine {
+      display: flex;
+      align-items: center;
+      gap: 10px;
       margin-top: 10px;
     }
 
-    .progressBar {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, #22c55e, #38bdf8);
-      transition: width 0.2s ease;
-    }
-
-    .tableWrap {
-      overflow: auto;
-      max-height: 360px;
-      border: 1px solid var(--border);
-      border-radius: 15px;
-      -webkit-overflow-scrolling: touch;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 420px;
-      direction: rtl;
-    }
-
-    th,
-    td {
-      padding: 10px;
-      border-bottom: 1px solid rgba(148, 163, 184, 0.16);
-      font-size: 12px;
-      text-align: right;
-      vertical-align: top;
-    }
-
-    th {
-      color: var(--muted);
-      background: rgba(2, 6, 23, 0.45);
-      position: sticky;
-      top: 0;
-      z-index: 2;
-    }
-
-    tr:hover td {
-      background: rgba(56, 189, 248, 0.07);
-    }
-
-    .debugBox {
-      direction: ltr;
-      text-align: left;
-      white-space: pre-wrap;
-      background: #020617;
-      color: #d1fae5;
-      border-radius: 16px;
-      padding: 12px;
-      min-height: 220px;
-      max-height: 420px;
-      overflow: auto;
-      font-size: 12px;
-      border: 1px solid var(--border);
-      line-height: 1.5;
-    }
-
-    .floatingActions {
-      position: fixed;
-      left: 16px;
-      bottom: calc(16px + var(--safe-bottom));
-      z-index: 18;
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .floatingActions button {
-      width: auto;
-      min-width: 48px;
-      border-radius: 13px;
-    }
-
-    .mobileActionBar {
-      display: none;
-      position: fixed;
-      right: 10px;
-      left: 10px;
-      bottom: calc(10px + var(--safe-bottom));
-      z-index: 25;
-      border-radius: 20px;
-      padding: 8px;
-      grid-template-columns: 1.2fr 1fr 1fr 0.8fr;
-      gap: 7px;
-      pointer-events: auto;
-    }
-
-    .mobileActionBar button {
-      padding: 10px 8px;
-      font-size: 12px;
-      min-height: 46px;
-      border-radius: 15px;
+    .rangeLine input {
+      flex: 1;
     }
 
     .status {
-      position: fixed;
-      left: 16px;
-      top: calc(92px + var(--safe-top));
-      z-index: 18;
-      max-width: 520px;
-      border-radius: 18px;
-      padding: 12px 14px;
-      color: var(--text);
+      margin-top: 12px;
+      padding: 10px 11px;
+      border-radius: 15px;
+      background: #f1f5f9;
+      color: #334155;
       font-size: 13px;
-      line-height: 1.5;
-      border-color: rgba(34, 197, 94, 0.45);
+      line-height: 1.45;
+      white-space: pre-wrap;
     }
 
-    .hidden {
-      display: none !important;
+    .status.ok {
+      background: #ecfdf5;
+      color: #166534;
     }
 
-    .panelCollapsed .layout {
+    .status.warn {
+      background: #fffbeb;
+      color: #92400e;
+    }
+
+    .status.bad {
+      background: #fef2f2;
+      color: #991b1b;
+    }
+
+    .layersFilter {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .layerList {
+      display: grid;
+      gap: 7px;
+      max-height: 268px;
+      overflow: auto;
+      padding-left: 3px;
+    }
+
+    .layerItem {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fff;
+    }
+
+    .layerItem:hover {
+      border-color: #bfdbfe;
+      background: #f8fbff;
+    }
+
+    .layerLabel {
+      min-width: 0;
+    }
+
+    .layerName {
+      font-size: 13px;
+      font-weight: 750;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .layerMeta {
+      font-size: 11px;
+      color: var(--muted);
+      direction: ltr;
+      text-align: right;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .switch {
+      appearance: none;
+      width: 42px;
+      height: 24px;
+      border-radius: 999px;
+      background: #cbd5e1;
+      position: relative;
+      outline: none;
+      transition: 0.18s ease;
+    }
+
+    .switch::after {
+      content: "";
+      position: absolute;
+      top: 3px;
+      right: 3px;
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: #fff;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
+      transition: 0.18s ease;
+    }
+
+    .switch:checked {
+      background: var(--primary);
+    }
+
+    .switch:checked::after {
+      transform: translateX(-18px);
+    }
+
+    .tag {
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #f1f5f9;
+      color: #475569;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .resultCard {
       display: none;
+      border: 1px solid #bbf7d0;
+      background: linear-gradient(180deg, #f0fdf4 0%, #fff 100%);
+      border-radius: var(--radius);
+      padding: 14px;
     }
 
-    .sheetCompact .layout {
-      height: 118px;
+    .resultCard.visible {
+      display: block;
     }
 
-    .sheetExpanded .layout {
-      height: 78vh;
+    .resultTop {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      gap: 12px;
+      margin-bottom: 10px;
     }
 
-    @media (max-width: 980px) {
-      .topbar {
-        top: calc(10px + var(--safe-top));
-        right: 10px;
-        left: 10px;
-        grid-template-columns: 1fr;
+    .resultTitle {
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1.15;
+    }
+
+    .distanceBadge {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #86efac;
+      border-radius: 999px;
+      padding: 6px 9px;
+      font-size: 13px;
+      font-weight: 850;
+      white-space: nowrap;
+    }
+
+    .resultMeta {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+      margin-bottom: 10px;
+    }
+
+    .resultActions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .nearbyList {
+      display: grid;
+      gap: 8px;
+    }
+
+    .nearbyItem {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 10px 11px;
+      background: #fff;
+    }
+
+    .nearbyItem strong {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 3px;
+    }
+
+    .mapWrap {
+      position: relative;
+      height: 100%;
+      min-width: 0;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      background: #e5e7eb;
+    }
+
+    .mapHint {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      z-index: 5;
+      max-width: 330px;
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+      padding: 10px 12px;
+      color: #334155;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .loadingBar {
+      position: absolute;
+      inset-inline: 0;
+      top: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--primary), transparent);
+      transform: translateX(100%);
+      opacity: 0;
+      z-index: 20;
+    }
+
+    .loading .loadingBar {
+      opacity: 1;
+      animation: slide 1s linear infinite;
+    }
+
+    @keyframes slide {
+      from { transform: translateX(100%); }
+      to { transform: translateX(-100%); }
+    }
+
+    @media (max-width: 860px) {
+      html,
+      body {
+        overflow: hidden;
       }
 
-      .brand {
-        min-height: 56px;
-        padding: 10px 12px;
-        background: rgba(15, 23, 42, 0.86);
-      }
-
-      .logo {
-        width: 38px;
-        height: 38px;
-        border-radius: 13px;
-      }
-
-      .brandTitle {
-        font-size: 18px;
-      }
-
-      .brandSub {
-        font-size: 11px;
-        max-width: calc(100vw - 110px);
-      }
-
-      .searchBox,
-      .quickStats {
-        display: none;
-      }
-
-      .layout {
-        top: auto;
-        right: 0;
-        left: 0;
-        bottom: 0;
-        width: 100%;
-        height: 64vh;
-        max-height: calc(100vh - 86px - var(--safe-top));
-        pointer-events: none;
-        padding: 0 8px calc(74px + var(--safe-bottom));
-        transition: height 0.2s ease;
-      }
-
-      .panel {
-        border-radius: 24px 24px 0 0;
-        background: rgba(15, 23, 42, 0.97);
-        pointer-events: auto;
-      }
-
-      .sheetHandle {
+      .app {
         display: block;
       }
 
-      .tabs {
-        grid-template-columns: repeat(5, 1fr);
+      .mapWrap {
+        height: 100%;
       }
 
-      .tab {
-        font-size: 11px;
-        padding: 10px 3px;
-        min-height: 44px;
+      .panel {
+        position: fixed;
+        inset: auto 10px calc(10px + var(--safe-bottom)) 10px;
+        height: min(77vh, 660px);
+        border: 1px solid var(--line);
+        border-radius: 26px;
+        transform: translateY(calc(100% - 132px));
+        transition: transform 0.22s ease;
       }
 
-      .panelBody {
-        padding: 12px;
-        padding-bottom: 18px;
+      .panel.open {
+        transform: translateY(0);
       }
 
-      .card {
-        padding: 12px;
-        border-radius: 17px;
-        margin-bottom: 10px;
+      .panelHeader {
+        padding: 14px 14px 10px;
       }
 
-      .row,
-      .row3 {
+      .mobileToggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      h1 {
+        font-size: 19px;
+      }
+
+      .subtitle {
+        display: none;
+      }
+
+      .mapHint {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+        max-width: none;
+      }
+
+      .quickActions,
+      .resultActions {
         grid-template-columns: 1fr;
       }
 
-      .statsGrid {
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
+      .controlsGrid {
+        grid-template-columns: 1fr;
       }
 
-      .statCard {
-        padding: 10px;
-      }
-
-      .statValue {
-        font-size: 18px;
-      }
-
-      .distanceBig {
-        font-size: 28px;
-      }
-
-      .status {
-        top: auto;
-        left: 10px;
-        right: 10px;
-        bottom: calc(74px + var(--safe-bottom));
-        max-width: none;
-        font-size: 12px;
-        padding: 10px 12px;
-        background: rgba(15, 23, 42, 0.9);
-        display: none;
-      }
-
-      .floatingActions {
-        display: none;
-      }
-
-      .mobileActionBar {
-        display: grid;
-      }
-
-      table {
-        min-width: 360px;
-      }
-
-      th,
-      td {
-        padding: 8px;
-        font-size: 11px;
-      }
-    }
-
-    @media (max-width: 420px) {
-      .layout {
-        height: 62vh;
-      }
-
-      .panelBody {
-        padding: 10px;
-      }
-
-      button {
-        font-size: 12px;
-      }
-
-      .pill {
-        font-size: 11px;
-        padding: 7px 9px;
+      .layerList {
+        max-height: 220px;
       }
     }
   </style>
 </head>
 
 <body>
-  <div id="map"></div>
+  <div class="app" id="app">
+    <aside class="panel" id="panel">
+      <div class="loadingBar"></div>
 
-  <header class="topbar">
-    <div class="brand" onclick="toggleMobileSheet()">
-      <div class="logo">SM</div>
-      <div>
-        <div class="brandTitle">ShelterMap</div>
-        <div class="brandSub">ניווט ליעד הקרוב ביותר</div>
+      <div class="panelHeader">
+        <div class="titleRow">
+          <div>
+            <h1>איתור נקודה קרובה</h1>
+            <p class="subtitle">GOVMAP · שכבות נקודתיות · ממשק נקי למובייל</p>
+          </div>
+          <button class="mobileToggle" id="mobileToggle" title="פתח/סגור">⌃</button>
+        </div>
+
+        <div class="pill" id="layerCount">0 שכבות פעילות</div>
+
+        <div class="searchBox">
+          <input id="searchInput" class="field" type="search" placeholder="חפש ישוב / כתובת / מקום" autocomplete="off" />
+          <button class="btn" id="searchBtn">חפש</button>
+        </div>
+
+        <div class="quickActions">
+          <button class="btn secondary" id="gpsBtn">המיקום שלי</button>
+          <button class="btn good" id="nearestBtn">מצא הכי קרוב</button>
+        </div>
+
+        <div class="originCard" id="originCard">
+          <strong>נקודת התחלה:</strong>
+          לחץ על המפה, חפש כתובת, או השתמש במיקום שלך.
+        </div>
       </div>
-    </div>
-
-    <div class="searchBox">
-      <input id="settlementSearch" placeholder="חפש ישוב / כתובת..." onkeydown="handleSettlementEnter(event)" />
-      <button class="blueBtn" onclick="searchSettlement()">חפש</button>
-      <button class="primary" onclick="searchSettlementAndFindShelter()">מצא מקלט</button>
-    </div>
-
-    <div class="quickStats">
-      <div class="miniStat">
-        <div class="miniStatLabel">בקשות חיפוש</div>
-        <div class="miniStatValue" id="topRequestsCount">0</div>
-      </div>
-      <div class="miniStat">
-        <div class="miniStatLabel">מרחק אווירי</div>
-        <div class="miniStatValue" id="topLastDistance">—</div>
-      </div>
-    </div>
-  </header>
-
-  <div class="status" id="statusBox">טוען GOVMAP...</div>
-
-  <main class="layout">
-    <aside class="panel">
-      <div class="sheetHandle" onclick="toggleMobileSheet()"></div>
-
-      <nav class="tabs">
-        <button class="tab active" onclick="showTab('dashboard', this)">סקירה</button>
-        <button class="tab" onclick="showTab('navigate', this)">ניווט</button>
-        <button class="tab" onclick="showTab('search', this)">חיפוש</button>
-        <button class="tab" onclick="showTab('results', this)">תוצאות</button>
-        <button class="tab" onclick="showTab('settings', this)">הגדרות</button>
-      </nav>
 
       <div class="panelBody">
-        <section id="tab-dashboard">
-          <div class="card">
-            <div class="cardTitle">מציאת יעד קרוב</div>
-
-            <button class="greenBtn" onclick="useMyLocationAndFindShelter()">השתמש במיקום שלי ומצא מקלט</button>
-
-            <div class="row">
-              <button class="primary" onclick="startMeasureMode()">בחר נקודה במפה</button>
-              <button class="blueBtn" onclick="useMyLocation()">רק הצג מיקום שלי</button>
+        <section class="resultCard" id="resultCard">
+          <div class="resultTop">
+            <div>
+              <div class="resultTitle" id="resultTitle">—</div>
+              <div class="resultMeta" id="resultMeta">—</div>
             </div>
-
-            <div class="row">
-              <button class="darkBtn" onclick="showShelterLayer()">הצג שכבות</button>
-              <button class="dangerBtn" onclick="cancelSearch()">בטל חיפוש</button>
-            </div>
-
-            <div class="row">
-              <button class="darkBtn" onclick="clearMapResult()">נקה קו ותוצאה</button>
-              <button class="darkBtn" onclick="stopMeasureMode()">עצור מדידה</button>
-            </div>
-
-            <div class="progressWrap">
-              <div class="progressBar" id="progressBar"></div>
-            </div>
-
-            <div class="warning">
-              במקרה חירום, היכנס למרחב המוגן הקרוב ביותר לפי הנחיות פיקוד העורף. האתר מסייע בניווט, אבל לא מחליף שיקול דעת או שילוט מקומי.
-            </div>
+            <div class="distanceBadge" id="resultDistance">—</div>
           </div>
-
-          <div class="card">
-            <div class="cardTitle">תוצאה אחרונה</div>
-            <div class="result" id="nearestResult">עדיין לא נבחרה נקודה.</div>
-          </div>
-
-          <div class="card">
-            <div class="cardTitle">סטטיסטיקה</div>
-
-            <div class="statsGrid">
-              <div class="statCard">
-                <div class="statLabel">שכבות חיפוש</div>
-                <div class="statValue blue" id="activeLayerTitle">—</div>
-              </div>
-
-              <div class="statCard">
-                <div class="statLabel">טווח שבו נמצא</div>
-                <div class="statValue yellow" id="lastRadius">—</div>
-              </div>
-
-              <div class="statCard">
-                <div class="statLabel">מרחק אווירי</div>
-                <div class="statValue green" id="lastDistance">—</div>
-              </div>
-
-              <div class="statCard">
-                <div class="statLabel">מצב מדידה</div>
-                <div class="statValue red" id="measureState">כבוי</div>
-              </div>
-
-              <div class="statCard">
-                <div class="statLabel">GPS</div>
-                <div class="statValue orange" id="gpsState">לא פעיל</div>
-              </div>
-
-              <div class="statCard">
-                <div class="statLabel">חיפוש אחרון</div>
-                <div class="statValue blue" id="lastSearchName">—</div>
-              </div>
-            </div>
+          <div class="resultActions">
+            <a class="btn" id="navBtn" href="#" target="_blank" rel="noopener">נווט בגוגל מפות</a>
+            <button class="btn ghost" id="focusBtn">התמקד במפה</button>
           </div>
         </section>
 
-        <section id="tab-navigate" class="hidden">
-          <div class="card">
-            <div class="cardTitle">ניווט ב־Google Maps</div>
-
-            <button class="greenBtn" onclick="useMyLocationFindAndOpenNavigation()">מצא מקלט ופתח ניווט רגלי</button>
-
-            <div class="row">
-              <button class="primary" onclick="openGoogleMapsNavigation('walking')">ניווט רגלי</button>
-              <button class="blueBtn" onclick="openGoogleMapsNavigation('driving')">ניווט ברכב</button>
-            </div>
-
-            <div class="row">
-              <button class="darkBtn" onclick="openGoogleMapsNavigation('bicycling')">אופניים</button>
-              <button class="darkBtn" onclick="openGoogleMapsNavigation('transit')">תחבורה ציבורית</button>
-            </div>
-
-            <div class="row">
-              <button class="darkBtn" onclick="copyNavigationLink('walking')">העתק קישור</button>
-              <button class="darkBtn" onclick="shareShelter()">שתף מקלט</button>
-            </div>
-
-            <div id="navigationBox" class="result" style="margin-top:10px;">
-              עדיין אין יעד לניווט. לחץ על “השתמש במיקום שלי ומצא מקלט”.
-            </div>
-
-            <div class="success">
-              אם אישרת GPS, הניווט ייפתח מהמיקום שלך. אם לא אישרת, Google Maps יבקש לבחור נקודת מוצא.
+        <section class="section">
+          <div class="sectionHead">
+            <div>
+              <div class="sectionTitle">חיפוש</div>
+              <div class="small">פשוט: מקור → רדיוס → שכבות פעילות</div>
             </div>
           </div>
+          <div class="sectionBody">
+            <div class="controlsGrid">
+              <select id="scopeSelect" class="select">
+                <option value="visible">רק שכבות פעילות</option>
+                <option value="emergency">רק שכבות חירום</option>
+                <option value="all">כל שכבות הנקודה</option>
+              </select>
 
-          <div class="card">
-            <div class="cardTitle">מיקום שלי</div>
-
-            <button class="blueBtn" onclick="useMyLocation()">קבל מיקום GPS</button>
-
-            <div id="myLocationBox" class="result" style="margin-top:10px;">
-              אין מיקום GPS עדיין.
+              <select id="sortSelect" class="select">
+                <option value="distance">מיון לפי מרחק</option>
+                <option value="layer">מיון לפי שכבה</option>
+              </select>
             </div>
+
+            <div class="rangeLine">
+              <span class="small">רדיוס</span>
+              <input id="radiusInput" type="range" min="500" max="20000" step="500" value="5000" />
+              <strong id="radiusLabel">5 ק״מ</strong>
+            </div>
+
+            <div class="status" id="statusBox">מוכן.</div>
           </div>
         </section>
 
-        <section id="tab-search" class="hidden">
-          <div class="card">
-            <div class="cardTitle">חיפוש ישוב / כתובת</div>
-
-            <label for="settlementSearchPanel">שם ישוב / כתובת</label>
-            <input id="settlementSearchPanel" placeholder="לדוגמה: אשדוד, שדרות, תל אביב..." onkeydown="handlePanelSettlementEnter(event)" />
-
-            <div class="row">
-              <button class="blueBtn" onclick="searchSettlementFromPanel()">חפש וזום</button>
-              <button class="primary" onclick="searchPanelSettlementAndFindShelter()">מצא מקלט</button>
-            </div>
-
-            <div class="pillGrid">
-              <button class="pill" onclick="quickSettlement('אשדוד')">אשדוד</button>
-              <button class="pill" onclick="quickSettlement('תל אביב')">תל אביב</button>
-              <button class="pill" onclick="quickSettlement('ירושלים')">ירושלים</button>
-              <button class="pill" onclick="quickSettlement('חיפה')">חיפה</button>
-              <button class="pill" onclick="quickSettlement('באר שבע')">באר שבע</button>
-              <button class="pill" onclick="quickSettlement('שדרות')">שדרות</button>
-              <button class="pill" onclick="quickSettlement('קריית שמונה')">קריית שמונה</button>
-              <button class="pill" onclick="quickSettlement('אילת')">אילת</button>
-              <button class="pill" onclick="quickSettlement('נתיבות')">נתיבות</button>
-              <button class="pill" onclick="quickSettlement('אופקים')">אופקים</button>
+        <section class="section">
+          <div class="sectionHead">
+            <div>
+              <div class="sectionTitle">שכבות נקודה</div>
+              <div class="small">אין כפתורים כפולים — רק מתגים.</div>
             </div>
           </div>
-
-          <div class="card">
-            <div class="cardTitle">חיפושים אחרונים</div>
-            <div class="pillGrid" id="recentSearchesBox"></div>
-          </div>
-
-          <div class="card">
-            <div class="cardTitle">בדיקה ידנית לפי X/Y</div>
-
-            <div class="row3">
-              <div>
-                <label for="manualX">X</label>
-                <input id="manualX" value="194388" inputmode="numeric" />
-              </div>
-
-              <div>
-                <label for="manualY">Y</label>
-                <input id="manualY" value="656159" inputmode="numeric" />
-              </div>
-
-              <div>
-                <label for="manualZoom">זום</label>
-                <input id="manualZoom" value="8" inputmode="numeric" />
-              </div>
+          <div class="sectionBody">
+            <div class="layersFilter">
+              <select id="categorySelect" class="select"></select>
+              <input id="layerSearch" class="field" type="search" placeholder="סנן שכבות..." />
             </div>
-
-            <div class="row">
-              <button class="blueBtn" onclick="zoomManual()">עבור לנקודה</button>
-              <button class="primary" onclick="findFromManualPoint()">מצא יעד קרוב</button>
-            </div>
+            <div class="layerList" id="layerList"></div>
           </div>
         </section>
 
-        <section id="tab-results" class="hidden">
-          <div class="card">
-            <div class="cardTitle">תוצאות אחרונות</div>
-
-            <label for="resultsSearch">חיפוש בתוצאות</label>
-            <input id="resultsSearch" placeholder="חפש לפי שם / מזהה..." oninput="renderResultsTable()" />
-
-            <div class="tableWrap" style="margin-top:10px;">
-              <table>
-                <thead>
-                  <tr>
-                    <th>יעד</th>
-                    <th>מרחק</th>
-                    <th>ObjectId</th>
-                    <th>פעולה</th>
-                  </tr>
-                </thead>
-                <tbody id="resultsTable"></tbody>
-              </table>
+        <section class="section">
+          <div class="sectionHead">
+            <div>
+              <div class="sectionTitle">תוצאות קרובות</div>
+              <div class="small" id="resultsSmall">עד 10 תוצאות אחרי ניקוי כפילויות</div>
             </div>
           </div>
-
-          <div class="card">
-            <div class="cardTitle">Debug</div>
-
-            <div class="row">
-              <button class="darkBtn" onclick="copyDebug()">העתק Debug</button>
-              <button class="dangerBtn" onclick="clearDebug()">נקה</button>
-            </div>
-
-            <pre class="debugBox" id="debugBox">אין פלט עדיין.</pre>
-          </div>
-        </section>
-
-        <section id="tab-settings" class="hidden">
-          <div class="card">
-            <div class="cardTitle">שכבות GOVMAP</div>
-
-            <label for="layerInput">הוסף שכבה לפי שם / מספר</label>
-            <input id="layerInput" value="BOMBSHELTERS" placeholder="לדוגמה: BOMBSHELTERS או 417" onchange="saveSettings()" />
-
-            <div class="row">
-              <button class="greenBtn" onclick="addLayerFromInput(true)">הוסף לחיפוש</button>
-              <button class="blueBtn" onclick="addLayerFromInput(false)">הוסף להצגה בלבד</button>
-            </div>
-
-            <div class="pillGrid">
-              <button class="pill" onclick="setLayerName('BOMBSHELTERS')">BOMBSHELTERS</button>
-              <button class="pill" onclick="setLayerName('417')">שכבה 417</button>
-            </div>
-
-            <label for="layersInput">שכבות שמשתתפות בחיפוש הקרוב</label>
-            <textarea id="layersInput" class="smallTextarea" onchange="saveSettings()" placeholder="כל שורה = שכבה אחת">BOMBSHELTERS</textarea>
-
-            <label for="visibleLayersInput">שכבות להצגה על המפה</label>
-            <textarea id="visibleLayersInput" class="smallTextarea" onchange="saveSettings()" placeholder="כל שורה = שכבה אחת">BOMBSHELTERS</textarea>
-
-            <div class="row">
-              <button class="greenBtn" onclick="showShelterLayer()">הצג שכבות</button>
-              <button class="darkBtn" onclick="hideShelterLayer()">הסתר שכבות</button>
-            </div>
-
-            <div class="row">
-              <button class="darkBtn" onclick="copyLayerConfig()">העתק רשימת שכבות</button>
-              <button class="dangerBtn" onclick="clearLayerLists()">נקה רשימה</button>
-            </div>
-
-            <div class="warning">
-              אפשר להוסיף כמעט כל שכבת GOVMAP שיש לה גיאומטריה. אם זו שכבת פוליגונים/קווים, האתר יחשב נקודת מרכז משוערת וימדוד אליה קו אווירי.
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="cardTitle">הגדרות חיפוש</div>
-
-            <label for="maxDistanceSelect">מרחק חיפוש מקסימלי</label>
-            <select id="maxDistanceSelect" onchange="saveSettings()">
-              <option value="5000">5 ק״מ</option>
-              <option value="10000">10 ק״מ</option>
-              <option value="20000" selected>20 ק״מ</option>
-              <option value="50000">50 ק״מ</option>
-              <option value="100000">100 ק״מ</option>
-              <option value="200000">200 ק״מ</option>
-            </select>
-
-            <label for="gridQualitySelect">איכות חיפוש</label>
-            <select id="gridQualitySelect" onchange="saveSettings()">
-              <option value="fast">מהיר</option>
-              <option value="balanced" selected>מאוזן</option>
-              <option value="accurate">מדויק יותר</option>
-            </select>
-
-            <label for="parallelSelect">בקשות במקביל</label>
-            <select id="parallelSelect" onchange="saveSettings()">
-              <option value="1">1 — הכי יציב</option>
-              <option value="2" selected>2 — מומלץ לטלפון</option>
-              <option value="3">3</option>
-              <option value="4">4 — מהיר יותר</option>
-            </select>
-          </div>
-
-          <div class="card">
-            <div class="cardTitle">רקע מפה</div>
-
-            <label for="backgroundSelect">מפת רקע</label>
-            <select id="backgroundSelect" onchange="saveSettings()">
-              <option value="1" selected>תצלום אוויר</option>
-              <option value="0">רחובות</option>
-              <option value="2">משולב</option>
-              <option value="9">טופוגרפי</option>
-              <option value="11">ללא רקע</option>
-            </select>
-
-            <button class="darkBtn" onclick="changeBackground()">החלף רקע</button>
-          </div>
-
-          <div class="card">
-            <div class="cardTitle">תחזוקה</div>
-
-            <div class="row">
-              <button class="darkBtn" onclick="clearSearchCache()">נקה Cache</button>
-              <button class="dangerBtn" onclick="resetSettings()">איפוס הגדרות</button>
-            </div>
-
-            <div class="warning">
-              ככל שמוסיפים יותר שכבות לחיפוש, יהיו יותר בקשות ל־GOVMAP. בטלפון עדיף להשאיר 1–3 שכבות פעילות לחיפוש.
+          <div class="sectionBody">
+            <div class="nearbyList" id="nearbyList">
+              <div class="small">אין עדיין תוצאות.</div>
             </div>
           </div>
         </section>
       </div>
     </aside>
-  </main>
 
-  <div class="floatingActions">
-    <button onclick="togglePanel()">☰</button>
-    <button onclick="useMyLocationAndFindShelter()">GPS</button>
-    <button onclick="openGoogleMapsNavigation('walking')">נווט</button>
-    <button onclick="startMeasureMode()">מדוד</button>
-    <button onclick="cancelSearch()">בטל</button>
+    <main class="mapWrap">
+      <div id="map"></div>
+      <div class="mapHint">
+        לחץ על נקודה במפה כדי לקבוע נקודת התחלה, ואז לחץ “מצא הכי קרוב”.
+      </div>
+    </main>
   </div>
 
-  <nav class="mobileActionBar">
-    <button class="greenBtn" onclick="useMyLocationAndFindShelter()">GPS</button>
-    <button class="primary" onclick="openGoogleMapsNavigation('walking')">נווט</button>
-    <button class="blueBtn" onclick="showMobileTab('search')">חיפוש</button>
-    <button class="darkBtn" onclick="toggleMobileSheet()">פאנל</button>
-  </nav>
-
   <script>
+    /**********************
+     * הגדרות בסיס
+     **********************/
     const GOVMAP_TOKEN = "ede9a5fd-7c23-432f-8ffb-d85feffa3f3c";
+    const MAP_DIV_ID = "map";
 
-    const DEFAULT_LAYER_NAME = "BOMBSHELTERS";
-    const DEFAULT_LAYER_LIST = ["BOMBSHELTERS"];
-    const LAYER_FALLBACKS = ["BOMBSHELTERS", "417"];
-    const GOVMAP_MAX_SAFE_RADIUS = 3000;
-
-    const SETTINGS_KEY = "sheltermap_settings_multilayer_v5";
-    const RECENT_SEARCHES_KEY = "sheltermap_recent_searches_v1";
-
-    const CACHE_MAX_ITEMS = 850;
-    const searchCache = new Map();
-    const inFlightCache = new Map();
-
+    // רשת ישראל החדשה. דרוש להמרת GPS של הדפדפן לקואורדינטות GOVMAP.
     const WGS84 = "EPSG:4326";
     const ITM = "EPSG:2039";
 
-    const state = {
-      ready: false,
-      measuring: false,
-      searchToken: 0,
-      measureRequestId: 0,
-      lastClickedPoint: null,
-      lastNearest: null,
-      lastCandidates: [],
-      lastRadius: null,
-      lastLayerUsed: DEFAULT_LAYER_NAME,
-      lastSettlementPoint: null,
-      lastSettlementName: "",
-      myLocation: null,
-      requestsCounter: 0,
-      cacheHits: 0,
-      totalCenters: 0,
-      checkedCenters: 0,
-      mobileSheetExpanded: false
-    };
-
-    function setupProjection() {
-      if (!window.proj4) {
-        setStatus("proj4 לא נטען, לכן ניווט Google Maps לא יעבוד.", true);
-        return;
-      }
-
+    if (window.proj4) {
       proj4.defs(
         ITM,
-        "+proj=tmerc +lat_0=31.7343936111111 +lon_0=35.2045169444444 +k=1.0000067 +x_0=219529.584 +y_0=626907.39 +ellps=GRS80 +units=m +no_defs +type=crs"
+        "+proj=tmerc +lat_0=31.7343936111111 +lon_0=35.2045169444444 +k=1.0000067 +x_0=219529.584 +y_0=626907.39 +ellps=GRS80 +towgs84=-24.0024,-17.1032,-17.8444,-0.33077,-1.85269,1.66969,5.4248 +units=m +no_defs +type=crs"
       );
     }
 
-    function initGovMap() {
-      setupProjection();
-      loadSettings();
-      loadRecentSearches();
+    /*
+      שכבות נקודה מתוך GOVMAP.
+      הוצאתי כפילות ידועה: Stops ו-bus_stops. השארתי bus_stops בלבד.
+      אם שכבת המקלטים שלך לא נטענת בשם 225287, החלף את id שלה בשם השכבה/alias המדויק מ-GOVMAP.
+    */
+    const POINT_LAYERS = [
+      { id: "225287", title: "מקלטים / מרחבים מוגנים", category: "חירום", enabled: true, strategy: "clientEntities", userLayer: true },
 
+      { id: "MADA_STATIONS", title: "תחנות מד״א", category: "חירום", enabled: true },
+      { id: "FIRE_STATIONS", title: "תחנות כיבוי אש", category: "חירום", enabled: true },
+      { id: "POLICE_Yehida_Location", title: "תחנות משטרה", category: "חירום", enabled: false },
+      { id: "POLICE_Merhav_Location", title: "מפקדות מרחבי משטרה", category: "חירום", enabled: false },
+      { id: "POLICE_Mahoz_Location", title: "מפקדות מחוזות משטרה", category: "חירום", enabled: false },
+
+      { id: "Emergancy_Hospitals", title: "בתי חולים", category: "בריאות", enabled: false },
+      { id: "Health_care_baby_stations", title: "תחנות טיפת חלב", category: "בריאות", enabled: false },
+      { id: "Chambers", title: "לשכות משרד הבריאות", category: "בריאות", enabled: false },
+      { id: "MOSDOT_griatric", title: "מוסדות גריאטריים", category: "בריאות", enabled: false },
+
+      { id: "bus_stops", title: "תחנות אוטובוס", category: "תחבורה", enabled: false },
+      { id: "GASSTATIONS", title: "תחנות דלק", category: "תחבורה", enabled: false },
+      { id: "trans_poi", title: "מתקני רישוי נהיגה", category: "תחבורה", enabled: false },
+
+      { id: "cell_active", title: "אנטנות סלולריות", category: "תשתיות", enabled: false },
+      { id: "GPS_stations", title: "תחנות GPS", category: "תשתיות", enabled: false },
+      { id: "OilGasWells", title: "קידוחי נפט וגז", category: "תשתיות", enabled: false },
+
+      { id: "btl", title: "סניפי ביטוח לאומי", category: "שירותים", enabled: false },
+      { id: "banks", title: "סניפי בנקים", category: "שירותים", enabled: false },
+      { id: "moe_pikadon", title: "מרכזי החזרת פיקדונות", category: "שירותים", enabled: false },
+      { id: "sport", title: "מתקני ספורט", category: "שירותים", enabled: false },
+      { id: "Mikve", title: "מקוואות", category: "שירותים", enabled: false },
+      { id: "Moatzot", title: "מועצות דתיות", category: "שירותים", enabled: false },
+
+      { id: "atractions", title: "אטרקציות", category: "תיירות", enabled: false },
+      { id: "atikot_sites_itm", title: "אתרי עתיקות", category: "תיירות", enabled: false },
+      { id: "hotels", title: "בתי מלון", category: "תיירות", enabled: false },
+      { id: "zimmer", title: "צימרים", category: "תיירות", enabled: false },
+      { id: "winery", title: "יקבים", category: "תיירות", enabled: false },
+
+      { id: "ilPublicSites_June05", title: "חניונים ואתרי קק״ל", category: "קק״ל", enabled: false },
+      { id: "ilkkloff", title: "משרדי קק״ל", category: "קק״ל", enabled: false },
+      { id: "ilkklfiretr", title: "נקודות תצפית לגילוי שרפות", category: "קק״ל", enabled: false }
+    ];
+
+    const state = {
+      mapReady: false,
+      origin: null,
+      nearest: null,
+      allResults: [],
+      layerEntityCache: new Map(),
+      activeGeometryNames: ["nearest_route_line"],
+      isPanelOpen: false
+    };
+
+    const $ = (id) => document.getElementById(id);
+
+    /**********************
+     * אתחול מפה
+     **********************/
+    window.initGovMap = function initGovMap() {
       try {
-        govmap.createMap("map", {
+        govmap.createMap(MAP_DIV_ID, {
           token: GOVMAP_TOKEN,
-          center: { x: 176000, y: 657000 },
-          level: isMobile() ? 4 : 3,
-          background: document.getElementById("backgroundSelect").value || "1",
-          layers: getVisibleLayerNames(),
-          visibleLayers: getVisibleLayerNames(),
+          center: { x: 176000, y: 660000 },
+          level: 2,
+          layers: unique(POINT_LAYERS.map((l) => l.id)),
+          visibleLayers: getVisibleLayerIds(),
           showXY: true,
-          identifyOnClick: false,
-          layersMode: 2,
-          zoomButtons: !isMobile(),
-          bgButton: !isMobile(),
-
+          identifyOnClick: true,
+          identifyOnlyBubble: false,
+          isEmbeddedToggle: false,
+          background: 3,
+          layersMode: 1,
+          zoomButtons: false,
           onLoad: function () {
-            state.ready = true;
-            updateDashboard();
-            renderResultsTable();
-            renderRecentSearches();
-            updateNavigationBox();
-            updateMyLocationBox();
-            setStatus("המפה נטענה. בטלפון מומלץ ללחוץ GPS ואז נווט.");
-            print("GOVMAP loaded", { ready: true, searchLayers: getLayerOrder(), visibleLayers: getVisibleLayerNames(), mobile: isMobile() });
+            state.mapReady = true;
+            setStatus("המפה נטענה. בחר נקודת התחלה וחפש נקודה קרובה.", "ok");
+            syncVisibleLayers();
           },
-
-          onError: function (error) {
-            setStatus("שגיאה בטעינת GOVMAP. בדוק שהטוקן מאושר לדומיין.", true);
-            print("GOVMAP error", normalizeError(error));
+          onClick: function (event) {
+            const p = extractMapClickPoint(event);
+            if (!p) return;
+            setOrigin({ x: p.x, y: p.y, source: "map" });
+            focusPoint(p.x, p.y, 9, true);
+            setStatus("נקודת התחלה נקבעה מהמפה. עכשיו לחץ “מצא הכי קרוב”.", "ok");
+            openPanelOnMobile();
+          },
+          onError: function (err) {
+            console.error(err);
+            setStatus("שגיאת GOVMAP. בדוק שה-token מאושר לדומיין וששמות השכבות נכונים.", "bad");
           }
         });
-      } catch (error) {
-        setStatus("לא הצלחתי להפעיל את GOVMAP.", true);
-        print("Init error", normalizeError(error));
+      } catch (err) {
+        console.error(err);
+        setStatus("לא הצלחתי לאתחל את GOVMAP. בדוק token, דומיין וחיבור לרשת.", "bad");
       }
-    }
+    };
 
-    function isMobile() {
-      return window.matchMedia("(max-width: 980px)").matches;
-    }
-
-    function toggleMobileSheet() {
-      if (!isMobile()) {
-        togglePanel();
-        return;
-      }
-
-      state.mobileSheetExpanded = !state.mobileSheetExpanded;
-      document.body.classList.toggle("sheetExpanded", state.mobileSheetExpanded);
-      document.body.classList.toggle("sheetCompact", !state.mobileSheetExpanded);
-    }
-
-    function expandMobileSheet() {
-      if (!isMobile()) return;
-      state.mobileSheetExpanded = true;
-      document.body.classList.add("sheetExpanded");
-      document.body.classList.remove("sheetCompact");
-    }
-
-    function collapseMobileSheet() {
-      if (!isMobile()) return;
-      state.mobileSheetExpanded = false;
-      document.body.classList.remove("sheetExpanded");
-      document.body.classList.remove("sheetCompact");
-    }
-
-    function showMobileTab(tabName) {
-      expandMobileSheet();
-      const tabButtons = Array.from(document.querySelectorAll(".tab"));
-      const target = tabButtons.find(function (btn) {
-        return btn.getAttribute("onclick") && btn.getAttribute("onclick").includes("'" + tabName + "'");
+    /**********************
+     * UI
+     **********************/
+    function initUi() {
+      $("searchBtn").addEventListener("click", searchPlace);
+      $("searchInput").addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter") searchPlace();
       });
 
-      if (target) {
-        showTab(tabName, target);
-      }
-    }
-
-    function showTab(tabName, button) {
-      document.querySelectorAll(".tab").forEach(function (tab) {
-        tab.classList.remove("active");
+      $("gpsBtn").addEventListener("click", useMyLocation);
+      $("nearestBtn").addEventListener("click", findNearest);
+      $("focusBtn").addEventListener("click", () => {
+        if (state.nearest) focusResult(state.nearest);
       });
 
-      if (button) button.classList.add("active");
+      $("radiusInput").addEventListener("input", updateRadiusLabel);
+      $("scopeSelect").addEventListener("change", () => {
+        renderLayers();
+        updateLayerCount();
+      });
+      $("sortSelect").addEventListener("change", renderResultsList);
+      $("categorySelect").addEventListener("change", renderLayers);
+      $("layerSearch").addEventListener("input", renderLayers);
 
-      ["dashboard", "navigate", "search", "results", "settings"].forEach(function (name) {
-        document.getElementById("tab-" + name).classList.add("hidden");
+      $("mobileToggle").addEventListener("click", () => {
+        state.isPanelOpen = !state.isPanelOpen;
+        $("panel").classList.toggle("open", state.isPanelOpen);
+        $("mobileToggle").textContent = state.isPanelOpen ? "⌄" : "⌃";
       });
 
-      document.getElementById("tab-" + tabName).classList.remove("hidden");
-      expandMobileSheet();
+      updateRadiusLabel();
+      renderCategorySelect();
+      renderLayers();
+      updateLayerCount();
     }
 
-    function togglePanel() {
-      document.body.classList.toggle("panelCollapsed");
-    }
-
-    function requireReady() {
-      if (!window.govmap || !state.ready) {
-        setStatus("המפה עדיין לא מוכנה.", true);
-        return false;
-      }
-
-      return true;
-    }
-
-    function setStatus(text, isError = false) {
-      const el = document.getElementById("statusBox");
-      el.textContent = text;
-      el.style.borderColor = isError
-        ? "rgba(239, 68, 68, 0.55)"
-        : "rgba(34, 197, 94, 0.45)";
-    }
-
-    function setProgress(done, total) {
-      const bar = document.getElementById("progressBar");
-
-      if (!total) {
-        bar.style.width = "0%";
-        return;
-      }
-
-      const percent = Math.max(0, Math.min(100, Math.round((done / total) * 100)));
-      bar.style.width = percent + "%";
-    }
-
-    function print(title, data) {
-      const el = document.getElementById("debugBox");
-      el.textContent = title + "\n\n" + safeStringify(data);
-      console.log(title, data);
-    }
-
-    function safeStringify(value) {
-      try {
-        return typeof value === "string" ? value : JSON.stringify(value, null, 2);
-      } catch (error) {
-        return String(value);
+    function openPanelOnMobile() {
+      if (window.matchMedia("(max-width: 860px)").matches) {
+        state.isPanelOpen = true;
+        $("panel").classList.add("open");
+        $("mobileToggle").textContent = "⌄";
       }
     }
 
-    function normalizeError(error) {
-      return {
-        message: error && error.message ? error.message : String(error),
-        stack: error && error.stack ? error.stack : null,
-        code: error && error.code ? error.code : null
-      };
+    function renderCategorySelect() {
+      const categories = ["הכל", ...unique(POINT_LAYERS.map((l) => l.category)).sort((a, b) => a.localeCompare(b, "he"))];
+      $("categorySelect").innerHTML = categories
+        .map((cat) => `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`)
+        .join("");
     }
 
-    function clearDebug() {
-      document.getElementById("debugBox").textContent = "אין פלט עדיין.";
-    }
+    function renderLayers() {
+      const category = $("categorySelect").value || "הכל";
+      const q = normalizeText($("layerSearch").value || "");
+      const scope = $("scopeSelect").value;
 
-    function copyDebug() {
-      const text = document.getElementById("debugBox").textContent;
+      const html = POINT_LAYERS
+        .filter((layer) => category === "הכל" || layer.category === category)
+        .filter((layer) => {
+          const hay = normalizeText(`${layer.title} ${layer.id} ${layer.category}`);
+          return !q || hay.includes(q);
+        })
+        .map((layer, idx) => {
+          const disabledByScope = scope === "emergency" && layer.category !== "חירום";
+          return `
+            <label class="layerItem" title="${escapeHtml(layer.id)}">
+              <input
+                class="switch"
+                type="checkbox"
+                ${layer.enabled ? "checked" : ""}
+                ${disabledByScope ? "disabled" : ""}
+                data-layer-id="${escapeHtml(layer.id)}"
+                aria-label="${escapeHtml(layer.title)}"
+              />
+              <span class="layerLabel">
+                <span class="layerName">${escapeHtml(layer.title)}</span>
+                <span class="layerMeta">${escapeHtml(layer.id)}</span>
+              </span>
+              <span class="tag">${escapeHtml(layer.category)}</span>
+            </label>
+          `;
+        })
+        .join("");
 
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(text).then(function () {
-          setStatus("ה־Debug הועתק.");
+      $("layerList").innerHTML = html || `<div class="small">אין שכבות מתאימות לסינון.</div>`;
+
+      document.querySelectorAll("[data-layer-id]").forEach((input) => {
+        input.addEventListener("change", (ev) => {
+          const id = ev.target.getAttribute("data-layer-id");
+          const layer = POINT_LAYERS.find((l) => l.id === id);
+          if (!layer) return;
+          layer.enabled = ev.target.checked;
+          syncVisibleLayers();
+          updateLayerCount();
         });
+      });
+
+      updateLayerCount();
+    }
+
+    function updateLayerCount() {
+      const count = getSearchLayers().length;
+      const visible = getVisibleLayerIds().length;
+      $("layerCount").textContent = `${visible} פעילות · ${count} לחיפוש`;
+    }
+
+    function updateRadiusLabel() {
+      const meters = Number($("radiusInput").value);
+      $("radiusLabel").textContent = meters >= 1000 ? `${trimNumber(meters / 1000)} ק״מ` : `${meters} מ׳`;
+    }
+
+    function setLoading(isLoading) {
+      $("panel").classList.toggle("loading", Boolean(isLoading));
+      $("nearestBtn").disabled = Boolean(isLoading);
+      $("searchBtn").disabled = Boolean(isLoading);
+      $("gpsBtn").disabled = Boolean(isLoading);
+    }
+
+    function setStatus(text, mode = "") {
+      const box = $("statusBox");
+      box.textContent = text;
+      box.className = `status ${mode}`.trim();
+    }
+
+    function setOrigin(origin) {
+      state.origin = origin;
+      const label =
+        origin.source === "gps"
+          ? "GPS"
+          : origin.source === "search"
+            ? "חיפוש"
+            : "לחיצה על המפה";
+
+      $("originCard").innerHTML = `
+        <strong>נקודת התחלה:</strong> ${label}<br>
+        <span class="small">X ${Math.round(origin.x).toLocaleString("he-IL")} · Y ${Math.round(origin.y).toLocaleString("he-IL")}</span>
+      `;
+    }
+
+    /**********************
+     * GOVMAP layers
+     **********************/
+    function getVisibleLayerIds() {
+      return unique(POINT_LAYERS.filter((l) => l.enabled).map((l) => l.id));
+    }
+
+    function getSearchLayers() {
+      const scope = $("scopeSelect")?.value || "visible";
+      if (scope === "all") return POINT_LAYERS.slice();
+      if (scope === "emergency") return POINT_LAYERS.filter((l) => l.category === "חירום");
+      return POINT_LAYERS.filter((l) => l.enabled);
+    }
+
+    function syncVisibleLayers() {
+      if (!window.govmap || !state.mapReady || !govmap.setVisibleLayers) return;
+
+      const on = getVisibleLayerIds();
+      const off = unique(POINT_LAYERS.map((l) => l.id).filter((id) => !on.includes(id)));
+
+      try {
+        govmap.setVisibleLayers(on, off);
+      } catch (err) {
+        console.warn("setVisibleLayers failed", err);
       }
     }
 
-    function loadSettings() {
+    /**********************
+     * חיפוש מקור
+     **********************/
+    async function searchPlace() {
+      const keyword = $("searchInput").value.trim();
+      if (!keyword) {
+        setStatus("כתוב ישוב, כתובת או מקום לחיפוש.", "warn");
+        return;
+      }
+
+      if (!window.govmap?.geocode) {
+        setStatus("שירות geocode של GOVMAP עדיין לא מוכן.", "warn");
+        return;
+      }
+
+      setLoading(true);
+      setStatus("מחפש מיקום...");
+
       try {
-        const raw = localStorage.getItem(SETTINGS_KEY);
-        if (!raw) {
-          syncLayerInputFallbacks();
+        const response = await govmap.geocode({
+          keyword,
+          type: govmap.geocodeType?.FullResult || 0
+        });
+
+        const point = extractGeocodePoint(response);
+        if (!point) {
+          setStatus("לא נמצאה נקודה חד־משמעית. נסה שם ישוב/כתובת מדויקת יותר.", "warn");
           return;
         }
 
-        const settings = JSON.parse(raw);
-
-        if (settings.layerName) document.getElementById("layerInput").value = settings.layerName;
-        if (settings.layersText) document.getElementById("layersInput").value = settings.layersText;
-        if (settings.visibleLayersText) document.getElementById("visibleLayersInput").value = settings.visibleLayersText;
-        if (settings.maxDistance) document.getElementById("maxDistanceSelect").value = settings.maxDistance;
-        if (settings.quality) document.getElementById("gridQualitySelect").value = settings.quality;
-        if (settings.parallel) document.getElementById("parallelSelect").value = settings.parallel;
-        if (settings.background) document.getElementById("backgroundSelect").value = settings.background;
-
-        syncLayerInputFallbacks();
-      } catch (error) {
-        console.warn("Settings load failed", error);
-        syncLayerInputFallbacks();
+        setOrigin({ ...point, source: "search" });
+        focusPoint(point.x, point.y, 9, true);
+        setStatus("המיקום נמצא. עכשיו אפשר ללחוץ “מצא הכי קרוב”.", "ok");
+      } catch (err) {
+        console.error(err);
+        setStatus("החיפוש נכשל. נסה שוב או לחץ ידנית על המפה.", "bad");
+      } finally {
+        setLoading(false);
       }
     }
 
-    function saveSettings() {
-      syncLayerInputFallbacks();
-
-      const settings = {
-        layerName: getLayerName(),
-        layersText: document.getElementById("layersInput").value,
-        visibleLayersText: document.getElementById("visibleLayersInput").value,
-        maxDistance: document.getElementById("maxDistanceSelect").value,
-        quality: document.getElementById("gridQualitySelect").value,
-        parallel: document.getElementById("parallelSelect").value,
-        background: document.getElementById("backgroundSelect").value
-      };
-
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-      updateDashboard();
-    }
-
-    function resetSettings() {
-      localStorage.removeItem(SETTINGS_KEY);
-      document.getElementById("layerInput").value = DEFAULT_LAYER_NAME;
-      document.getElementById("layersInput").value = DEFAULT_LAYER_LIST.join("\n");
-      document.getElementById("visibleLayersInput").value = DEFAULT_LAYER_LIST.join("\n");
-      document.getElementById("maxDistanceSelect").value = "20000";
-      document.getElementById("gridQualitySelect").value = "balanced";
-      document.getElementById("parallelSelect").value = "2";
-      document.getElementById("backgroundSelect").value = "1";
-      saveSettings();
-      setStatus("ההגדרות אופסו.");
-    }
-
-    function parseLayerText(value) {
-      return Array.from(new Set(
-        String(value || "")
-          .split(/[\n,;]+/)
-          .map(function (x) { return x.trim(); })
-          .filter(Boolean)
-      ));
-    }
-
-    function getLayerNamesFromTextarea(id, fallback) {
-      const el = document.getElementById(id);
-      const layers = parseLayerText(el ? el.value : "");
-      return layers.length ? layers : fallback.slice();
-    }
-
-    function syncLayerInputFallbacks() {
-      const searchEl = document.getElementById("layersInput");
-      const visibleEl = document.getElementById("visibleLayersInput");
-
-      if (searchEl && !searchEl.value.trim()) searchEl.value = DEFAULT_LAYER_LIST.join("\n");
-      if (visibleEl && !visibleEl.value.trim()) visibleEl.value = getLayerOrder().join("\n");
-    }
-
-    function getLayerName() {
-      const firstSearchLayer = getLayerNamesFromTextarea("layersInput", DEFAULT_LAYER_LIST)[0];
-      return firstSearchLayer || document.getElementById("layerInput").value.trim() || DEFAULT_LAYER_NAME;
-    }
-
-    function setLayerName(name) {
-      const clean = String(name || "").trim();
-      if (!clean) return;
-
-      document.getElementById("layerInput").value = clean;
-      addLayerToTextarea("layersInput", clean);
-      addLayerToTextarea("visibleLayersInput", clean);
-      state.lastLayerUsed = clean;
-      saveSettings();
-      updateDashboard();
-      setStatus("נוספה שכבה: " + clean);
-    }
-
-    function getLayerOrder() {
-      return getLayerNamesFromTextarea("layersInput", DEFAULT_LAYER_LIST);
-    }
-
-    function getVisibleLayerNames() {
-      return getLayerNamesFromTextarea("visibleLayersInput", getLayerOrder());
-    }
-
-    function addLayerToTextarea(id, layerName) {
-      const el = document.getElementById(id);
-      if (!el) return;
-
-      const layers = parseLayerText(el.value);
-      if (!layers.includes(layerName)) layers.push(layerName);
-      el.value = layers.join("\n");
-    }
-
-    function addLayerFromInput(includeInSearch) {
-      const layerName = document.getElementById("layerInput").value.trim();
-
-      if (!layerName) {
-        setStatus("כתוב שם או מספר שכבה קודם.", true);
-        return;
-      }
-
-      if (includeInSearch) addLayerToTextarea("layersInput", layerName);
-      addLayerToTextarea("visibleLayersInput", layerName);
-      state.lastLayerUsed = layerName;
-      saveSettings();
-      setStatus(includeInSearch ? "השכבה נוספה לחיפוש ולהצגה." : "השכבה נוספה להצגה בלבד.");
-    }
-
-    function clearLayerLists() {
-      document.getElementById("layersInput").value = "";
-      document.getElementById("visibleLayersInput").value = "";
-      saveSettings();
-      setStatus("רשימות השכבות נוקו. אם תשאיר ריק, האתר יחזור ל־BOMBSHELTERS.");
-    }
-
-    async function copyLayerConfig() {
-      const text = "שכבות חיפוש:\n" + getLayerOrder().join("\n") + "\n\nשכבות הצגה:\n" + getVisibleLayerNames().join("\n");
-
-      try {
-        await navigator.clipboard.writeText(text);
-        setStatus("רשימת השכבות הועתקה.");
-      } catch {
-        print("Layer config", text);
-        setStatus("לא הצלחתי להעתיק, הצגתי את הרשימה ב־Debug.", true);
-      }
-    }
-
-    function getMaxDistance() {
-      const value = Number(document.getElementById("maxDistanceSelect").value);
-      return Number.isFinite(value) ? value : 20000;
-    }
-
-    function getGridSpacing() {
-      const quality = document.getElementById("gridQualitySelect").value;
-
-      if (quality === "fast") return 5400;
-      if (quality === "accurate") return 3300;
-
-      return 4100;
-    }
-
-    function getParallelLimit() {
-      const value = Number(document.getElementById("parallelSelect").value);
-      return Number.isFinite(value) ? value : 2;
-    }
-
-    function showShelterLayer() {
-      if (!requireReady()) return;
-
-      const layers = getVisibleLayerNames();
-
-      try {
-        govmap.setVisibleLayers(layers, []);
-        state.lastLayerUsed = layers.join(", ");
-        updateDashboard();
-        setStatus("מוצגות " + layers.length + " שכבות: " + layers.join(", "));
-      } catch (error) {
-        setStatus("לא הצלחתי להציג את השכבות. בדוק שהשמות/מספרים קיימים ב־GOVMAP.", true);
-        print("Show layers error", { error: normalizeError(error), layers });
-      }
-    }
-
-    function hideShelterLayer() {
-      if (!requireReady()) return;
-
-      const layers = getVisibleLayerNames();
-
-      try {
-        govmap.setVisibleLayers([], layers);
-        setStatus("השכבות הוסתרו: " + layers.join(", "));
-      } catch (error) {
-        setStatus("לא הצלחתי להסתיר את השכבות.", true);
-        print("Hide layers error", { error: normalizeError(error), layers });
-      }
-    }
-
-    async function useMyLocation() {
+    function useMyLocation() {
       if (!navigator.geolocation) {
-        setStatus("הדפדפן לא תומך ב־GPS.", true);
-        return null;
-      }
-
-      setStatus("מבקש מיקום GPS...");
-
-      return new Promise(function (resolve) {
-        navigator.geolocation.getCurrentPosition(
-          async function (position) {
-            const lat = position.coords.latitude;
-            const lon = position.coords.longitude;
-            const accuracy = position.coords.accuracy;
-
-            const itm = wgs84ToItm(lat, lon);
-
-            if (!itm || !isValidIsraelGridPoint(itm)) {
-              setStatus("המיקום שהתקבל לא נמצא בתחום ישראל או לא הומר נכון.", true);
-              resolve(null);
-              return;
-            }
-
-            state.myLocation = {
-              lat,
-              lon,
-              accuracy,
-              x: itm.x,
-              y: itm.y
-            };
-
-            document.getElementById("manualX").value = Math.round(itm.x);
-            document.getElementById("manualY").value = Math.round(itm.y);
-
-            govmap.zoomToXY({
-              x: itm.x,
-              y: itm.y,
-              level: isMobile() ? 10 : 9,
-              marker: true
-            });
-
-            await drawMyLocationPoint(state.myLocation);
-
-            updateMyLocationBox();
-            updateDashboard();
-
-            setStatus("המיקום שלך התקבל בהצלחה.");
-            print("GPS location", state.myLocation);
-
-            resolve(state.myLocation);
-          },
-          function (error) {
-            const msg =
-              error.code === 1 ? "לא התקבלה הרשאת מיקום. אשר הרשאת GPS בדפדפן." :
-              error.code === 2 ? "המיקום לא זמין כרגע." :
-              error.code === 3 ? "זמן קבלת המיקום נגמר." :
-              "לא התקבל מיקום GPS.";
-
-            setStatus(msg, true);
-            print("GPS error", normalizeError(error));
-            resolve(null);
-          },
-          {
-            enableHighAccuracy: true,
-            timeout: 12000,
-            maximumAge: 10000
-          }
-        );
-      });
-    }
-
-    async function useMyLocationAndFindShelter() {
-      const location = await useMyLocation();
-
-      if (!location) return;
-
-      await runNearestSearchFromPoint({
-        x: location.x,
-        y: location.y
-      });
-    }
-
-    async function useMyLocationFindAndOpenNavigation() {
-      const location = await useMyLocation();
-      if (!location) return;
-
-      await runNearestSearchFromPoint({
-        x: location.x,
-        y: location.y
-      });
-
-      if (state.lastNearest) {
-        openGoogleMapsNavigation("walking");
-      }
-    }
-
-    function updateMyLocationBox() {
-      const box = document.getElementById("myLocationBox");
-
-      if (!box) return;
-
-      if (!state.myLocation) {
-        box.textContent = "אין מיקום GPS עדיין.";
+        setStatus("הדפדפן לא תומך במיקום GPS.", "bad");
         return;
       }
 
-      box.innerHTML =
-        "<strong>מיקום GPS:</strong><br>" +
-        "Lat: " + state.myLocation.lat.toFixed(6) + "<br>" +
-        "Lon: " + state.myLocation.lon.toFixed(6) + "<br>" +
-        "X: " + Math.round(state.myLocation.x) + " · Y: " + Math.round(state.myLocation.y) + "<br>" +
-        "דיוק משוער: " + Math.round(state.myLocation.accuracy || 0) + " מטר";
-    }
-
-    function handleSettlementEnter(event) {
-      if (event.key === "Enter") {
-        searchSettlement();
-      }
-    }
-
-    function handlePanelSettlementEnter(event) {
-      if (event.key === "Enter") {
-        searchSettlementFromPanel();
-      }
-    }
-
-    function getSettlementSearchText() {
-      const topValue = document.getElementById("settlementSearch").value.trim();
-      const panelValue = document.getElementById("settlementSearchPanel").value.trim();
-
-      return topValue || panelValue;
-    }
-
-    function syncSettlementInputs(value) {
-      document.getElementById("settlementSearch").value = value;
-      document.getElementById("settlementSearchPanel").value = value;
-    }
-
-    async function quickSettlement(name) {
-      syncSettlementInputs(name);
-      await searchSettlementAndFindShelter();
-    }
-
-    async function searchSettlementFromPanel() {
-      const value = document.getElementById("settlementSearchPanel").value.trim();
-      syncSettlementInputs(value);
-      return searchSettlement();
-    }
-
-    async function searchSettlement() {
-      if (!requireReady()) return null;
-
-      const query = getSettlementSearchText();
-
-      if (!query) {
-        setStatus("כתוב שם ישוב או כתובת לחיפוש.", true);
-        return null;
+      if (!window.proj4) {
+        setStatus("ספריית המרת הקואורדינטות לא נטענה. חפש כתובת במקום GPS.", "bad");
+        return;
       }
 
-      setStatus("מחפש ישוב / כתובת: " + query + "...");
+      setLoading(true);
+      setStatus("מבקש מיקום מהדפדפן...");
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          const [x, y] = proj4(WGS84, ITM, [lon, lat]);
+          setOrigin({ x, y, lat, lon, source: "gps" });
+          focusPoint(x, y, 10, true);
+          setStatus("המיקום שלך נקבע. אפשר למצוא נקודה קרובה.", "ok");
+          setLoading(false);
+        },
+        (err) => {
+          console.error(err);
+          setStatus("לא התקבלה הרשאת מיקום. אפשר לחפש כתובת או ללחוץ על המפה.", "warn");
+          setLoading(false);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 12000,
+          maximumAge: 30000
+        }
+      );
+    }
+
+    /**********************
+     * מציאת קרוב ביותר
+     **********************/
+    async function findNearest() {
+      if (!state.origin) {
+        setStatus("קודם צריך לבחור נקודת התחלה: חיפוש, GPS או לחיצה על המפה.", "warn");
+        openPanelOnMobile();
+        return;
+      }
+
+      const layers = getSearchLayers();
+      if (!layers.length) {
+        setStatus("אין שכבות פעילות לחיפוש.", "warn");
+        return;
+      }
+
+      const radius = Number($("radiusInput").value || 5000);
+
+      setLoading(true);
+      setStatus(`מחפש נקודות עד ${formatDistance(radius)} ב-${layers.length} שכבות...`);
 
       try {
-        const params = { keyword: query };
+        const all = [];
 
-        if (govmap.geocodeType && govmap.geocodeType.FullResult !== undefined) {
-          params.type = govmap.geocodeType.FullResult;
+        for (const layer of layers) {
+          const layerResults = await queryLayer(layer, state.origin, radius);
+          all.push(...layerResults);
         }
 
-        const response = await toPromise(govmap.geocode(params));
-        const point = extractAnyIsraelPoint(response);
+        const clean = dedupeResults(all)
+          .filter((r) => Number.isFinite(r.distance) && r.distance <= radius)
+          .sort((a, b) => {
+            if ($("sortSelect").value === "layer") {
+              const layerCmp = a.layerTitle.localeCompare(b.layerTitle, "he");
+              return layerCmp || a.distance - b.distance;
+            }
+            return a.distance - b.distance;
+          });
 
-        if (!point) {
-          setStatus("לא מצאתי קואורדינטות בתוצאת החיפוש.", true);
-          print("Geocode response without point", response);
-          return null;
+        state.allResults = clean;
+        renderResultsList();
+
+        if (!clean.length) {
+          state.nearest = null;
+          $("resultCard").classList.remove("visible");
+          setStatus(
+            `לא נמצאה נקודה ברדיוס ${formatDistance(radius)}.\nנסה להגדיל רדיוס או להפעיל שכבות נוספות.`,
+            "warn"
+          );
+          return;
         }
 
-        state.lastSettlementPoint = point;
-        state.lastSettlementName = query;
-
-        addRecentSearch(query);
-
-        document.getElementById("manualX").value = Math.round(point.x);
-        document.getElementById("manualY").value = Math.round(point.y);
-
-        govmap.zoomToXY({
-          x: point.x,
-          y: point.y,
-          level: isMobile() ? 9 : 8,
-          marker: true
-        });
-
-        updateDashboard();
-        setStatus("נמצא מיקום עבור: " + query);
-        print("Settlement search", { query, point, response });
-
-        return point;
-      } catch (error) {
-        setStatus("שגיאה בחיפוש ישוב / כתובת.", true);
-        print("Geocode error", normalizeError(error));
-        return null;
+        state.nearest = clean[0];
+        showNearest(clean[0]);
+        drawRoute(clean[0]);
+        setStatus(`נמצאו ${clean.length} תוצאות אחרי ניקוי כפילויות. הקרובה ביותר נבחרה.`, "ok");
+      } catch (err) {
+        console.error(err);
+        setStatus("החיפוש נכשל. בדוק שמות שכבות, הרשאות token וקונסול בדפדפן.", "bad");
+      } finally {
+        setLoading(false);
       }
     }
 
-    async function searchSettlementAndFindShelter() {
-      const point = await searchSettlement();
+    async function queryLayer(layer, origin, radius) {
+      if (layer.strategy === "clientEntities") {
+        const byEntities = await queryClientEntitiesLayer(layer, origin, radius);
+        if (byEntities.length) return byEntities;
 
-      if (point) {
-        await runNearestSearchFromPoint(point);
+        // fallback אם שכבת המשתמש לא מוחזרת דרך getLayerEntities.
+        return queryLayerDataWithFallback(layer, origin, radius);
       }
+
+      return queryLayerDataWithFallback(layer, origin, radius);
     }
 
-    async function searchPanelSettlementAndFindShelter() {
-      const point = await searchSettlementFromPanel();
+    async function queryClientEntitiesLayer(layer, origin, radius) {
+      if (!window.govmap?.getLayerEntities) return [];
 
-      if (point) {
-        await runNearestSearchFromPoint(point);
-      }
-    }
-
-    function loadRecentSearches() {
-      renderRecentSearches();
-    }
-
-    function getRecentSearches() {
       try {
-        return JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || "[]");
-      } catch {
+        let rows = state.layerEntityCache.get(layer.id);
+        if (!rows) {
+          const response = await govmap.getLayerEntities({
+            layerName: layer.id,
+            token: GOVMAP_TOKEN
+          });
+          rows = flattenResponse(response);
+          state.layerEntityCache.set(layer.id, rows);
+        }
+
+        return rows
+          .map((row) => normalizeGovmapRow(row, layer, origin))
+          .filter((item) => item && Number.isFinite(item.distance) && item.distance <= radius);
+      } catch (err) {
+        console.warn(`getLayerEntities failed for ${layer.id}`, err);
         return [];
       }
     }
 
-    function addRecentSearch(query) {
-      const cleaned = String(query || "").trim();
-      if (!cleaned) return;
+    async function queryLayerDataWithFallback(layer, origin, radius) {
+      const direct = await queryLayerData(layer, origin, radius);
+      if (direct.length || radius <= 3000) return direct;
 
-      const current = getRecentSearches()
-        .filter(function (x) {
-          return x !== cleaned;
-        });
+      /*
+        בהרבה כלים של GOVMAP, תשאול מעגל מוגבל סביב 3 ק״מ.
+        לכן אם חיפוש גדול לא מחזיר כלום, מריצים דגימות משנה ברדיוס 3 ק״מ סביב המקור.
+      */
+      const centers = createFallbackCenters(origin, radius);
+      const merged = [...direct];
 
-      current.unshift(cleaned);
-
-      localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(current.slice(0, 10)));
-      renderRecentSearches();
-    }
-
-    function renderRecentSearches() {
-      const box = document.getElementById("recentSearchesBox");
-      if (!box) return;
-
-      const recent = getRecentSearches();
-      box.innerHTML = "";
-
-      if (!recent.length) {
-        box.innerHTML = "<span class='muted'>אין חיפושים אחרונים עדיין.</span>";
-        return;
+      for (const center of centers) {
+        const chunk = await queryLayerData(layer, center, 3000, origin);
+        merged.push(...chunk);
       }
 
-      recent.forEach(function (query) {
-        const btn = document.createElement("button");
-        btn.className = "pill";
-        btn.textContent = query;
-        btn.onclick = function () {
-          quickSettlement(query);
-        };
-        box.appendChild(btn);
-      });
+      return merged;
     }
 
-    function startMeasureMode() {
-      if (!requireReady()) return;
-
-      state.measuring = true;
-      state.measureRequestId += 1;
-
-      updateDashboard();
-      collapseMobileSheet();
-      setStatus("מצב מדידה פעיל. לחץ על נקודה במפה.");
-
-      waitForMapClick(state.measureRequestId);
-    }
-
-    function stopMeasureMode() {
-      state.measuring = false;
-      state.measureRequestId += 1;
-      updateDashboard();
-      resetGovMapTool();
-      setStatus("מצב המדידה נעצר.");
-    }
-
-    function cancelSearch() {
-      state.searchToken += 1;
-      state.measuring = false;
-      state.measureRequestId += 1;
-      setProgress(0, 1);
-      updateDashboard();
-      resetGovMapTool();
-      setStatus("החיפוש בוטל.");
-    }
-
-    function waitForMapClick(requestId) {
-      if (!state.measuring) return;
+    async function queryLayerData(layer, center, radius, realOrigin = center) {
+      if (!window.govmap?.getLayerData) return [];
 
       try {
-        const result = govmap.getXY();
-
-        const onPoint = function (response) {
-          if (requestId !== state.measureRequestId) return;
-          handleClickedPointResponse(response);
-        };
-
-        const onError = function (error) {
-          if (requestId !== state.measureRequestId) return;
-          setStatus("שגיאה בקבלת נקודת לחיצה.", true);
-          print("getXY error", normalizeError(error));
-        };
-
-        if (result && typeof result.progress === "function") {
-          result.progress(onPoint);
-          if (typeof result.fail === "function") result.fail(onError);
-          return;
-        }
-
-        if (result && typeof result.then === "function") {
-          result.then(onPoint, onError);
-          return;
-        }
-
-        onPoint(result);
-      } catch (error) {
-        setStatus("שגיאה בהפעלת getXY.", true);
-        print("getXY exception", normalizeError(error));
-      }
-    }
-
-    async function handleClickedPointResponse(response) {
-      const point = extractClickPoint(response);
-
-      if (!point) {
-        setStatus("לא הצלחתי לקרוא X/Y מהלחיצה.", true);
-        print("Bad click response", response);
-        return;
-      }
-
-      await runNearestSearchFromPoint(point);
-      expandMobileSheet();
-    }
-
-    async function runNearestSearchFromPoint(point) {
-      if (!requireReady()) return;
-
-      const clicked = { x: Number(point.x), y: Number(point.y) };
-
-      if (!isValidIsraelGridPoint(clicked)) {
-        setStatus("הנקודה לא נראית כמו קואורדינטות ישראליות תקינות.", true);
-        print("Invalid point", clicked);
-        return;
-      }
-
-      state.lastClickedPoint = clicked;
-      state.requestsCounter = 0;
-      state.cacheHits = 0;
-      state.checkedCenters = 0;
-      state.totalCenters = 0;
-      state.searchToken += 1;
-
-      const myToken = state.searchToken;
-
-      document.getElementById("manualX").value = Math.round(clicked.x);
-      document.getElementById("manualY").value = Math.round(clicked.y);
-
-      setProgress(0, 1);
-      setStatus("מחפש יעד קרוב...");
-
-      try {
-        const searchResult = await findNearestShelterOptimized(clicked, myToken);
-
-        if (myToken !== state.searchToken) return;
-
-        if (!searchResult || !searchResult.nearest) {
-          state.lastNearest = null;
-          state.lastCandidates = [];
-          state.lastRadius = null;
-
-          updateDashboard();
-          renderResultsTable();
-          updateNavigationBox();
-
-          document.getElementById("nearestResult").innerHTML =
-            "לא נמצאו שכבות בטווח החיפוש שנבדק.";
-
-          setStatus("לא נמצאו שכבות סביב הנקודה.", true);
-          print("No shelter found", { clicked, searchResult });
-          resetGovMapTool();
-          return;
-        }
-
-        state.lastNearest = searchResult.nearest;
-        state.lastCandidates = searchResult.candidates;
-        state.lastRadius = searchResult.radius;
-        state.lastLayerUsed = searchResult.layerName;
-
-        addLatLonToNearest();
-
-        updateNearestResult(clicked, searchResult.nearest, searchResult);
-        updateNavigationBox();
-        renderResultsTable();
-        updateDashboard();
-
-        await drawResult(clicked, searchResult.nearest);
-
-        print("Nearest shelter optimized result", {
-          clicked,
-          layerName: searchResult.layerName,
-          effectiveSearchRadius: searchResult.radius,
-          requestsSent: state.requestsCounter,
-          cacheHits: state.cacheHits,
-          checkedCenters: searchResult.checkedCenters,
-          totalCenters: searchResult.totalCenters,
-          nearest: searchResult.nearest,
-          candidatesCount: searchResult.candidates.length,
-          rawResponse: searchResult.rawResponse
+        const response = await govmap.getLayerData({
+          LayerName: layer.id,
+          Point: { x: center.x, y: center.y },
+          Radius: radius,
+          token: GOVMAP_TOKEN
         });
 
-        setStatus("נמצא היעד הקרוב וצויר קו אליו. אפשר לפתוח ניווט ב־Google Maps.");
-
-        resetGovMapTool();
-
-        if (state.measuring) {
-          const nextId = ++state.measureRequestId;
-          setTimeout(function () {
-            waitForMapClick(nextId);
-          }, 350);
-        }
-      } catch (error) {
-        if (myToken !== state.searchToken) return;
-
-        setStatus("שגיאה בחיפוש שכבות.", true);
-        print("Nearest shelter search error", normalizeError(error));
-        resetGovMapTool();
+        return flattenResponse(response)
+          .map((row) => normalizeGovmapRow(row, layer, realOrigin, center))
+          .filter(Boolean);
+      } catch (err) {
+        console.warn(`getLayerData failed for ${layer.id}`, err);
+        return [];
       }
     }
 
-    async function findFromManualPoint() {
-      if (!requireReady()) return;
-
-      const x = Number(document.getElementById("manualX").value);
-      const y = Number(document.getElementById("manualY").value);
-
-      if (!Number.isFinite(x) || !Number.isFinite(y)) {
-        setStatus("צריך X/Y תקינים.", true);
-        return;
-      }
-
-      await runNearestSearchFromPoint({ x, y });
-    }
-
-    async function findNearestShelterOptimized(clicked, token) {
-      const layerOrder = getLayerOrder();
-      const maxDistance = getMaxDistance();
-      const centers = buildOptimizedSearchCenters(clicked, maxDistance);
-      const parallelLimit = getParallelLimit();
-
-      state.totalCenters = centers.length;
-      state.checkedCenters = 0;
-
-      let allCandidates = [];
-      let bestLayerName = getLayerName();
-      let lastRawResponse = null;
-      let cursor = 0;
-
-      while (cursor < centers.length) {
-        if (token !== state.searchToken) return null;
-
-        const currentBest = getBestCandidate(allCandidates);
-
-        if (currentBest && currentBest.distanceMeters <= centers[cursor].lowerBound) {
-          const finalCandidates = sortCandidates(dedupeCandidates(allCandidates));
-
-          return {
-            layerName: bestLayerName,
-            radius: currentBest.distanceMeters,
-            nearest: currentBest,
-            candidates: finalCandidates,
-            rawResponse: lastRawResponse,
-            checkedCenters: state.checkedCenters,
-            totalCenters: centers.length
-          };
-        }
-
-        const batch = centers.slice(cursor, cursor + parallelLimit);
-        cursor += parallelLimit;
-
-        setStatus(
-          "מחפש מקלט... " +
-          Math.min(cursor, centers.length) +
-          "/" +
-          centers.length +
-          " | הכי קרוב אפשרי: " +
-          formatDistance(batch[0].lowerBound)
-        );
-
-        setProgress(Math.min(cursor, centers.length), centers.length);
-
-        const batchResults = await Promise.all(
-          batch.map(function (center) {
-            return queryAllLayersForCenter(layerOrder, center);
-          })
-        );
-
-        state.checkedCenters += batch.length;
-
-        batchResults.forEach(function (centerResult) {
-          lastRawResponse = centerResult.rawResponse || lastRawResponse;
-
-          if (centerResult.layerName) {
-            bestLayerName = centerResult.layerName;
-          }
-
-          centerResult.candidates.forEach(function (candidate) {
-            candidate.distanceMeters = distanceMeters(clicked, candidate);
-            candidate.searchCenter = {
-              x: centerResult.center.x,
-              y: centerResult.center.y,
-              lowerBound: centerResult.center.lowerBound,
-              distanceFromClickedToCenter: centerResult.center.distanceFromClicked
-            };
-          });
-
-          allCandidates = allCandidates.concat(centerResult.candidates);
-        });
-
-        updateDashboard();
-      }
-
-      const finalCandidates = sortCandidates(dedupeCandidates(allCandidates));
-
-      if (finalCandidates.length) {
-        return {
-          layerName: bestLayerName,
-          radius: finalCandidates[0].distanceMeters,
-          nearest: finalCandidates[0],
-          candidates: finalCandidates,
-          rawResponse: lastRawResponse,
-          checkedCenters: state.checkedCenters,
-          totalCenters: centers.length
-        };
-      }
-
-      return {
-        nearest: null,
-        candidates: [],
-        rawResponse: lastRawResponse,
-        checkedCenters: state.checkedCenters,
-        totalCenters: centers.length
-      };
-    }
-
-    async function queryAllLayersForCenter(layerOrder, center) {
-      let all = [];
-      let lastRawResponse = null;
-      let usedLayer = "";
-
-      for (const layerName of layerOrder) {
-        const result = await queryIntersectFeaturesCached(layerName, center, GOVMAP_MAX_SAFE_RADIUS);
-
-        lastRawResponse = result.rawResponse || lastRawResponse;
-
-        if (result.candidates.length) {
-          usedLayer = layerName;
-
-          result.candidates.forEach(function (candidate) {
-            candidate.layerName = layerName;
-            candidate.layerTitle = layerName;
-          });
-
-          all = all.concat(result.candidates);
-        }
-      }
-
-      return {
-        center,
-        layerName: usedLayer,
-        candidates: all,
-        rawResponse: lastRawResponse
-      };
-    }
-
-    function buildOptimizedSearchCenters(clicked, maxDistance) {
-      const spacing = getGridSpacing();
+    function createFallbackCenters(origin, radius) {
       const centers = [];
-      const seen = new Set();
+      const step = 2500;
+      const maxRing = Math.ceil(radius / step);
 
-      function addCenter(x, y) {
-        const point = { x, y };
+      for (let ring = 1; ring <= maxRing; ring++) {
+        const d = ring * step;
+        if (d > radius + step) break;
 
-        if (!isValidIsraelGridPoint(point)) return;
+        const directions = [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+          [0.7071, 0.7071],
+          [0.7071, -0.7071],
+          [-0.7071, 0.7071],
+          [-0.7071, -0.7071]
+        ];
 
-        const d = distanceMeters(clicked, point);
-        const lowerBound = Math.max(0, d - GOVMAP_MAX_SAFE_RADIUS);
-
-        if (lowerBound > maxDistance) return;
-
-        const key = Math.round(x / 50) + "," + Math.round(y / 50);
-
-        if (seen.has(key)) return;
-
-        seen.add(key);
-
-        centers.push({
-          x,
-          y,
-          distanceFromClicked: d,
-          lowerBound
-        });
-      }
-
-      addCenter(clicked.x, clicked.y);
-
-      const limit = maxDistance + GOVMAP_MAX_SAFE_RADIUS;
-      const steps = Math.ceil(limit / spacing);
-
-      for (let ix = -steps; ix <= steps; ix++) {
-        for (let iy = -steps; iy <= steps; iy++) {
-          if (ix === 0 && iy === 0) continue;
-
-          addCenter(
-            clicked.x + ix * spacing,
-            clicked.y + iy * spacing
-          );
+        for (const [dx, dy] of directions) {
+          centers.push({ x: origin.x + dx * d, y: origin.y + dy * d });
         }
       }
 
-      centers.sort(function (a, b) {
-        return a.lowerBound - b.lowerBound ||
-               a.distanceFromClicked - b.distanceFromClicked;
-      });
-
-      return centers;
+      return centers.slice(0, 56);
     }
 
-    function getBestCandidate(candidates) {
-      const sorted = sortCandidates(dedupeCandidates(candidates));
-      return sorted.length ? sorted[0] : null;
+    /**********************
+     * תוצאות וציור
+     **********************/
+    function showNearest(result) {
+      $("resultCard").classList.add("visible");
+      $("resultTitle").textContent = result.name || result.layerTitle;
+      $("resultDistance").textContent = formatDistance(result.distance);
+      $("resultMeta").innerHTML = `
+        שכבה: <strong>${escapeHtml(result.layerTitle)}</strong><br>
+        מזהה GOVMAP: <span dir="ltr">${escapeHtml(result.layerId)}</span>
+      `;
+
+      const navUrl = makeGoogleMapsNavUrl(result);
+      $("navBtn").href = navUrl || "#";
+      $("navBtn").style.pointerEvents = navUrl ? "auto" : "none";
+      $("navBtn").style.opacity = navUrl ? "1" : "0.45";
+
+      openPanelOnMobile();
     }
 
-    function sortCandidates(candidates) {
-      return candidates
-        .filter(function (candidate) {
-          return (
-            candidate &&
-            isValidIsraelGridPoint(candidate) &&
-            Number.isFinite(candidate.distanceMeters)
-          );
-        })
-        .sort(function (a, b) {
-          return a.distanceMeters - b.distanceMeters;
+    function renderResultsList() {
+      const list = state.allResults.slice(0, 10);
+
+      if (!list.length) {
+        $("nearbyList").innerHTML = `<div class="small">אין עדיין תוצאות.</div>`;
+        $("resultsSmall").textContent = "עד 10 תוצאות אחרי ניקוי כפילויות";
+        return;
+      }
+
+      $("resultsSmall").textContent = `${state.allResults.length} תוצאות אחרי ניקוי כפילויות`;
+
+      $("nearbyList").innerHTML = list
+        .map((r, i) => `
+          <div class="nearbyItem" data-result-index="${i}">
+            <strong>${i + 1}. ${escapeHtml(r.name || r.layerTitle)}</strong>
+            <div class="small">
+              ${escapeHtml(r.layerTitle)} · ${formatDistance(r.distance)}
+            </div>
+          </div>
+        `)
+        .join("");
+
+      document.querySelectorAll("[data-result-index]").forEach((el) => {
+        el.addEventListener("click", () => {
+          const idx = Number(el.getAttribute("data-result-index"));
+          const result = list[idx];
+          if (!result) return;
+          state.nearest = result;
+          showNearest(result);
+          drawRoute(result);
         });
-    }
-
-    function dedupeCandidates(candidates) {
-      const seen = new Set();
-
-      return candidates.filter(function (candidate) {
-        const key =
-          candidate.objectId ||
-          Math.round(candidate.x) + "," + Math.round(candidate.y);
-
-        if (seen.has(key)) return false;
-
-        seen.add(key);
-        return true;
       });
     }
 
-    async function queryIntersectFeaturesCached(layerName, center, radius) {
-      const key = buildCacheKey(layerName, center, radius);
+    function drawRoute(result) {
+      if (!state.origin || !result?.x || !result?.y || !window.govmap?.displayGeometries) return;
 
-      if (searchCache.has(key)) {
-        state.cacheHits += 1;
-        return searchCache.get(key);
-      }
+      clearRoute();
 
-      if (inFlightCache.has(key)) {
-        state.cacheHits += 1;
-        return inFlightCache.get(key);
-      }
-
-      const request = queryIntersectFeatures(layerName, center, radius)
-        .then(function (result) {
-          searchCache.set(key, result);
-
-          if (searchCache.size > CACHE_MAX_ITEMS) {
-            const firstKey = searchCache.keys().next().value;
-            searchCache.delete(firstKey);
+      try {
+        govmap.displayGeometries({
+          wkts: [`LINESTRING(${state.origin.x} ${state.origin.y}, ${result.x} ${result.y})`],
+          names: ["nearest_route_line"],
+          geometryType: govmap.geometryType.POLYLINE,
+          defaultSymbol: {
+            color: [37, 99, 235, 1],
+            width: 6
+          },
+          symbols: [],
+          clearExisting: false,
+          data: {
+            tooltips: [`${result.layerTitle} · ${formatDistance(result.distance)}`],
+            headers: ["מסלול בקו אווירי"],
+            bubbleHTML: `<div style="font-family:Arial;padding:8px;direction:rtl">מרחק בקו אווירי: ${formatDistance(result.distance)}</div>`,
+            bubbleHTMLParameters: [[]]
           }
-
-          return result;
-        })
-        .finally(function () {
-          inFlightCache.delete(key);
         });
+      } catch (err) {
+        console.warn("display route failed", err);
+      }
 
-      inFlightCache.set(key, request);
-      return request;
+      focusResult(result);
     }
 
-    function buildCacheKey(layerName, center, radius) {
-      const gridX = Math.round(center.x / 250) * 250;
-      const gridY = Math.round(center.y / 250) * 250;
-
-      return [layerName, gridX, gridY, radius].join("|");
-    }
-
-    async function queryIntersectFeatures(layerName, center, radius) {
-      state.requestsCounter += 1;
-
-      const requestVariants = [
-        {
-          geometry: "POINT(" + center.x + " " + center.y + ")",
-          layerName: layerName,
-          fields: ["objectid"],
-          getShapes: true,
-          radius: radius
-        },
-        {
-          geometry: "POINT(" + center.x + " " + center.y + ")",
-          layerName: layerName,
-          fields: [],
-          getShapes: true,
-          radius: radius
+    function clearRoute() {
+      try {
+        if (window.govmap?.clearGeometriesByName) {
+          govmap.clearGeometriesByName(["nearest_route_line"]);
         }
+      } catch (err) {
+        console.warn("clear route failed", err);
+      }
+    }
+
+    function focusResult(result) {
+      if (!result?.x || !result?.y) return;
+      focusPoint(result.x, result.y, 10, true);
+
+      try {
+        // ודא ששכבת התוצאה דולקת.
+        govmap.setVisibleLayers([result.layerId], []);
+      } catch (err) {
+        console.warn("focus result layer visibility failed", err);
+      }
+    }
+
+    function focusPoint(x, y, level = 9, marker = true) {
+      try {
+        if (window.govmap?.zoomToXY) {
+          govmap.zoomToXY({ x, y, level, marker });
+        } else if (window.govmap?.setMapMarker && marker) {
+          govmap.setMapMarker({ x, y });
+        }
+      } catch (err) {
+        console.warn("focus point failed", err);
+      }
+    }
+
+    /**********************
+     * נרמול תשובות GOVMAP
+     **********************/
+    function flattenResponse(response) {
+      if (!response) return [];
+
+      const candidates = [
+        response.data,
+        response.Data,
+        response.result,
+        response.results,
+        response.entities,
+        response.Entities,
+        response
       ];
 
-      let lastResponse = null;
-
-      for (const params of requestVariants) {
-        try {
-          const response = await toPromise(govmap.intersectFeatures(params));
-          lastResponse = response;
-
-          const candidates = parseIntersectCandidates(response, center)
-            .filter(function (candidate) {
-              return (
-                candidate.hasGeometry &&
-                isValidIsraelGridPoint(candidate) &&
-                Number.isFinite(candidate.distanceMeters)
-              );
-            })
-            .sort(function (a, b) {
-              return a.distanceMeters - b.distanceMeters;
-            });
-
-          if (candidates.length) {
-            return {
-              candidates,
-              rawResponse: response
-            };
-          }
-        } catch (error) {
-          lastResponse = {
-            error: normalizeError(error),
-            layerName,
-            radius,
-            params
-          };
-        }
+      for (const c of candidates) {
+        if (Array.isArray(c)) return c;
+        if (c && Array.isArray(c.data)) return c.data;
+        if (c && Array.isArray(c.Data)) return c.Data;
+        if (c && Array.isArray(c.results)) return c.results;
+        if (c && Array.isArray(c.Results)) return c.Results;
       }
 
+      return [];
+    }
+
+    function normalizeGovmapRow(row, layer, origin, queryCenter = origin) {
+      if (!row) return null;
+
+      const fields = extractFields(row);
+      const point = extractPointFromRow(row);
+      const rawDistance = firstFiniteNumber(
+        row.distance,
+        row.Distance,
+        row.DISTANCE,
+        fields.distance,
+        fields.Distance,
+        fields.מרחק,
+        fields["מרחק"]
+      );
+
+      let x = point?.x;
+      let y = point?.y;
+
+      // אם אין קואורדינטות בתשובה, עדיין נציג את התוצאה, אבל לא נוכל לצייר קו מדויק.
+      const computedDistance = Number.isFinite(x) && Number.isFinite(y)
+        ? distanceMeters(origin.x, origin.y, x, y)
+        : Number.isFinite(rawDistance)
+          ? rawDistance + distanceMeters(origin.x, origin.y, queryCenter.x, queryCenter.y)
+          : NaN;
+
+      const name =
+        pickFirstString(fields, [
+          "שם",
+          "שם אתר",
+          "שם_אתר",
+          "שם תחנה",
+          "שם מוסד",
+          "שם ישוב",
+          "שם יישוב",
+          "name",
+          "Name",
+          "NAME",
+          "title",
+          "Title",
+          "SHEM",
+          "shem",
+          "station_name",
+          "site_name"
+        ]) ||
+        pickFirstString(row, ["title", "Title", "name", "Name", "NAME"]) ||
+        layer.title;
+
       return {
-        candidates: [],
-        rawResponse: lastResponse
+        layerId: layer.id,
+        layerTitle: layer.title,
+        layerCategory: layer.category,
+        name: cleanText(name),
+        x,
+        y,
+        distance: computedDistance,
+        raw: row,
+        fields
       };
     }
 
-    function parseIntersectCandidates(response, searchCenter) {
-      const items = getDataItems(response);
-      const candidates = [];
+    function extractFields(row) {
+      const out = {};
 
-      items.forEach(function (item, index) {
-        const point = extractStrictGeometryPoint(item);
+      const possible = [
+        row.fields,
+        row.Fields,
+        row.attributes,
+        row.Attributes,
+        row.properties,
+        row.Properties,
+        row.data,
+        row.Data,
+        row
+      ];
 
-        if (!point || !isValidIsraelGridPoint(point)) {
-          return;
+      for (const block of possible) {
+        if (!block) continue;
+
+        if (Array.isArray(block)) {
+          for (const item of block) {
+            const key =
+              item?.key ??
+              item?.Key ??
+              item?.name ??
+              item?.Name ??
+              item?.fieldName ??
+              item?.FieldName ??
+              item?.Field;
+            const value =
+              item?.value ??
+              item?.Value ??
+              item?.fieldValue ??
+              item?.FieldValue ??
+              item?.Text ??
+              item?.text;
+            if (key != null && value != null) out[String(key)] = value;
+          }
+          continue;
         }
 
-        const attrs = flattenAttributes(item);
-        const objectId = getObjectId(item, attrs);
-        const distanceFromSearchCenter = distanceMeters(searchCenter, point);
-
-        candidates.push({
-          index,
-          source: "intersectFeatures",
-          objectId,
-          name: extractName(attrs, objectId, index),
-          address: extractAddress(attrs),
-          description: extractDescription(attrs),
-          x: point.x,
-          y: point.y,
-          hasGeometry: true,
-          distanceFromSearchCenter,
-          distanceMeters: distanceFromSearchCenter,
-          raw: item
-        });
-      });
-
-      return candidates;
-    }
-
-    function getDataItems(response) {
-      if (!response) return [];
-      if (Array.isArray(response)) return response;
-
-      if (Array.isArray(response.data)) return response.data;
-      if (response.data && Array.isArray(response.data.Data)) return response.data.Data;
-
-      const arrays = [];
-      collectObjectArrays(response, arrays, 0);
-
-      return arrays
-        .sort(function (a, b) { return b.length - a.length; })
-        .flat()
-        .filter(function (item) {
-          return item && typeof item === "object" && !Array.isArray(item);
-        });
-    }
-
-    function collectObjectArrays(value, arrays, depth) {
-      if (!value || depth > 6) return;
-
-      if (Array.isArray(value)) {
-        if (value.some(function (item) {
-          return item && typeof item === "object" && !Array.isArray(item);
-        })) {
-          arrays.push(value);
-        }
-
-        value.forEach(function (item) {
-          collectObjectArrays(item, arrays, depth + 1);
-        });
-
-        return;
-      }
-
-      if (typeof value !== "object") return;
-
-      Object.keys(value).forEach(function (key) {
-        collectObjectArrays(value[key], arrays, depth + 1);
-      });
-    }
-
-    function flattenAttributes(obj) {
-      const attrs = [];
-      const visited = new WeakSet();
-
-      function add(key, value) {
-        if (value === null || value === undefined) return;
-
-        if (
-          typeof value === "string" ||
-          typeof value === "number" ||
-          typeof value === "boolean"
-        ) {
-          attrs.push({
-            key: String(key),
-            value: String(value)
-          });
-        }
-      }
-
-      function walk(value, depth) {
-        if (!value || depth > 6) return;
-
-        if (Array.isArray(value)) {
-          value.forEach(function (item, i) {
-            if (item && typeof item === "object" && !Array.isArray(item)) {
-              const key =
-                item.FieldName || item.fieldName ||
-                item.Name || item.name ||
-                item.Title || item.title ||
-                item.key || item.Key ||
-                ("array_" + i);
-
-              const val =
-                item.Value !== undefined ? item.Value :
-                item.value !== undefined ? item.value :
-                item.Text !== undefined ? item.Text :
-                item.text !== undefined ? item.text :
-                item.Content !== undefined ? item.Content :
-                item.content !== undefined ? item.content :
-                null;
-
-              if (val !== null && val !== undefined) add(key, val);
+        if (typeof block === "object") {
+          for (const [k, v] of Object.entries(block)) {
+            if (v == null) continue;
+            if (typeof v !== "object" || v instanceof String || v instanceof Number) {
+              out[k] = v;
             }
-
-            walk(item, depth + 1);
-          });
-
-          return;
-        }
-
-        if (typeof value !== "object") return;
-        if (visited.has(value)) return;
-        visited.add(value);
-
-        Object.keys(value).forEach(function (key) {
-          add(key, value[key]);
-          walk(value[key], depth + 1);
-        });
-      }
-
-      walk(obj, 0);
-      return attrs;
-    }
-
-    function getObjectId(item, attrs) {
-      const direct =
-        item.ObjectId ?? item.OBJECTID ?? item.objectid ??
-        item.ObjectID ?? item.id ?? item.ID;
-
-      if (direct !== undefined && direct !== null && direct !== "") {
-        return String(direct);
-      }
-
-      const fromAttrs = findAttr(attrs, [
-        "objectid",
-        "object id",
-        "object_id",
-        "מזהה"
-      ]);
-
-      return fromAttrs || "";
-    }
-
-    function extractName(attrs, objectId, index) {
-      const name = findAttr(attrs, [
-        "שם",
-        "name",
-        "shem",
-        "title",
-        "description",
-        "תיאור",
-        "type",
-        "סוג"
-      ]);
-
-      if (name) return name;
-
-      const address = extractAddress(attrs);
-      if (address) return address;
-
-      if (objectId) return "מקלט " + objectId;
-
-      return "מקלט " + (index + 1);
-    }
-
-    function extractAddress(attrs) {
-      return findAttr(attrs, [
-        "כתובת",
-        "address",
-        "addr",
-        "רחוב",
-        "street",
-        "ישוב",
-        "יישוב",
-        "city",
-        "town"
-      ]);
-    }
-
-    function extractDescription(attrs) {
-      return findAttr(attrs, [
-        "תיאור",
-        "description",
-        "remark",
-        "remarks",
-        "הערה",
-        "סוג",
-        "type"
-      ]);
-    }
-
-    function findAttr(attrs, patterns) {
-      const normalizedPatterns = patterns.map(function (p) {
-        return String(p).toLowerCase();
-      });
-
-      for (const attr of attrs) {
-        const key = String(attr.key || "").toLowerCase();
-
-        if (normalizedPatterns.some(function (p) { return key.includes(p); })) {
-          const value = String(attr.value || "").trim();
-
-          if (
-            value &&
-            value !== "null" &&
-            value !== "undefined"
-          ) {
-            return value;
           }
         }
+      }
+
+      return out;
+    }
+
+    function extractPointFromRow(row) {
+      const directBlocks = [
+        row,
+        row.geometry,
+        row.Geometry,
+        row.geom,
+        row.Geom,
+        row.point,
+        row.Point,
+        row.location,
+        row.Location,
+        row.centroid,
+        row.Center,
+        row.center
+      ];
+
+      for (const block of directBlocks) {
+        const p = pointFromObject(block);
+        if (p) return p;
+      }
+
+      const fields = extractFields(row);
+      const pFromFields = pointFromObject(fields);
+      if (pFromFields) return pFromFields;
+
+      const strings = collectStrings(row, 4);
+      for (const s of strings) {
+        const p = parsePointWkt(s);
+        if (p) return p;
+
+        const p2 = parseJsonPointString(s);
+        if (p2) return p2;
+      }
+
+      return null;
+    }
+
+    function pointFromObject(obj) {
+      if (!obj || typeof obj !== "object") return null;
+
+      const x = firstFiniteNumber(
+        obj.x,
+        obj.X,
+        obj.lon,
+        obj.Lon,
+        obj.Longitude,
+        obj.longitude,
+        obj.ITM_X,
+        obj.itm_x,
+        obj["נ.צ. X"],
+        obj["X"],
+        obj["coordX"]
+      );
+      const y = firstFiniteNumber(
+        obj.y,
+        obj.Y,
+        obj.lat,
+        obj.Lat,
+        obj.Latitude,
+        obj.latitude,
+        obj.ITM_Y,
+        obj.itm_y,
+        obj["נ.צ. Y"],
+        obj["Y"],
+        obj["coordY"]
+      );
+
+      if (Number.isFinite(x) && Number.isFinite(y)) {
+        // אם אלו קואורדינטות WGS84 בטעות, המר ל-ITM.
+        if (Math.abs(x) <= 90 && Math.abs(y) <= 180 && window.proj4) {
+          const lat = x;
+          const lon = y;
+          const [itmX, itmY] = proj4(WGS84, ITM, [lon, lat]);
+          return { x: itmX, y: itmY };
+        }
+
+        if (Math.abs(x) <= 180 && Math.abs(y) <= 90 && window.proj4) {
+          const [itmX, itmY] = proj4(WGS84, ITM, [x, y]);
+          return { x: itmX, y: itmY };
+        }
+
+        return { x, y };
+      }
+
+      if (Array.isArray(obj.coordinates) && obj.coordinates.length >= 2) {
+        const [a, b] = obj.coordinates.map(Number);
+        if (Number.isFinite(a) && Number.isFinite(b)) {
+          if (Math.abs(a) <= 180 && Math.abs(b) <= 90 && window.proj4) {
+            const [itmX, itmY] = proj4(WGS84, ITM, [a, b]);
+            return { x: itmX, y: itmY };
+          }
+          return { x: a, y: b };
+        }
+      }
+
+      return null;
+    }
+
+    function parsePointWkt(str) {
+      if (typeof str !== "string") return null;
+
+      const pointMatch = str.match(/POINT\s*\(\s*([0-9.+-]+)\s+([0-9.+-]+)\s*\)/i);
+      if (pointMatch) {
+        return { x: Number(pointMatch[1]), y: Number(pointMatch[2]) };
+      }
+
+      const multiMatch = str.match(/MULTIPOINT\s*\(\s*\(?\s*([0-9.+-]+)\s+([0-9.+-]+)\s*\)?/i);
+      if (multiMatch) {
+        return { x: Number(multiMatch[1]), y: Number(multiMatch[2]) };
+      }
+
+      return null;
+    }
+
+    function parseJsonPointString(str) {
+      if (typeof str !== "string") return null;
+      if (!str.includes("{") || !str.includes("}")) return null;
+
+      try {
+        return pointFromObject(JSON.parse(str));
+      } catch {
+        return null;
+      }
+    }
+
+    function collectStrings(value, depth = 3, out = []) {
+      if (depth < 0 || value == null || out.length > 80) return out;
+
+      if (typeof value === "string") {
+        out.push(value);
+        return out;
+      }
+
+      if (Array.isArray(value)) {
+        value.slice(0, 40).forEach((v) => collectStrings(v, depth - 1, out));
+        return out;
+      }
+
+      if (typeof value === "object") {
+        Object.values(value).slice(0, 60).forEach((v) => collectStrings(v, depth - 1, out));
+      }
+
+      return out;
+    }
+
+    function extractMapClickPoint(event) {
+      const p = pointFromObject(event);
+      if (p) return p;
+
+      const candidates = [
+        event?.mapPoint,
+        event?.MapPoint,
+        event?.point,
+        event?.Point,
+        event?.coordinate,
+        event?.Coordinate,
+        event?.location
+      ];
+
+      for (const c of candidates) {
+        const cp = pointFromObject(c);
+        if (cp) return cp;
+      }
+
+      return null;
+    }
+
+    function extractGeocodePoint(response) {
+      const p = extractPointFromRow(response);
+      if (p) return p;
+
+      const rows = flattenResponse(response);
+      for (const row of rows) {
+        const rp = extractPointFromRow(row);
+        if (rp) return rp;
+      }
+
+      const strings = collectStrings(response, 6);
+      for (const s of strings) {
+        const wp = parsePointWkt(s);
+        if (wp) return wp;
+      }
+
+      return null;
+    }
+
+    /**********************
+     * Utilities
+     **********************/
+    function dedupeResults(results) {
+      const map = new Map();
+
+      for (const item of results) {
+        if (!item) continue;
+
+        const xKey = Number.isFinite(item.x) ? Math.round(item.x / 3) * 3 : "x";
+        const yKey = Number.isFinite(item.y) ? Math.round(item.y / 3) * 3 : "y";
+        const nameKey = normalizeText(item.name || "");
+        const key = `${item.layerId}|${xKey}|${yKey}|${nameKey}`;
+
+        const existing = map.get(key);
+        if (!existing || item.distance < existing.distance) {
+          map.set(key, item);
+        }
+      }
+
+      return [...map.values()];
+    }
+
+    function distanceMeters(x1, y1, x2, y2) {
+      return Math.hypot(Number(x1) - Number(x2), Number(y1) - Number(y2));
+    }
+
+    function formatDistance(meters) {
+      if (!Number.isFinite(meters)) return "מרחק לא ידוע";
+      if (meters < 1000) return `${Math.round(meters).toLocaleString("he-IL")} מ׳`;
+      return `${trimNumber(meters / 1000)} ק״מ`;
+    }
+
+    function trimNumber(num) {
+      return Number(num.toFixed(num >= 10 ? 1 : 2)).toLocaleString("he-IL");
+    }
+
+    function firstFiniteNumber(...values) {
+      for (const value of values) {
+        if (value == null || value === "") continue;
+        const n = Number(String(value).replace(/,/g, ""));
+        if (Number.isFinite(n)) return n;
+      }
+      return NaN;
+    }
+
+    function pickFirstString(obj, keys) {
+      if (!obj || typeof obj !== "object") return "";
+      for (const key of keys) {
+        const value = obj[key];
+        if (value != null && String(value).trim()) return String(value);
+      }
+
+      const lowerObj = {};
+      for (const [k, v] of Object.entries(obj)) lowerObj[k.toLowerCase()] = v;
+
+      for (const key of keys) {
+        const value = lowerObj[String(key).toLowerCase()];
+        if (value != null && String(value).trim()) return String(value);
       }
 
       return "";
     }
 
-    function extractClickPoint(response) {
-      if (!response) return null;
-
-      if (response.mapPoint && isValidIsraelGridPoint(response.mapPoint)) {
-        return {
-          x: Number(response.mapPoint.x),
-          y: Number(response.mapPoint.y)
-        };
-      }
-
-      if (
-        response.data &&
-        response.data.mapPoint &&
-        isValidIsraelGridPoint(response.data.mapPoint)
-      ) {
-        return {
-          x: Number(response.data.mapPoint.x),
-          y: Number(response.data.mapPoint.y)
-        };
-      }
-
-      return extractAnyIsraelPoint(response);
+    function cleanText(value) {
+      return String(value || "")
+        .replace(/<[^>]*>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
     }
 
-    function extractAnyIsraelPoint(value) {
-      const visited = new WeakSet();
-
-      function walk(v, depth) {
-        if (!v || depth > 8) return null;
-
-        if (typeof v === "string") {
-          return parseWkt(v);
-        }
-
-        if (Array.isArray(v)) {
-          for (const item of v) {
-            const found = walk(item, depth + 1);
-            if (found) return found;
-          }
-          return null;
-        }
-
-        if (typeof v !== "object") return null;
-        if (visited.has(v)) return null;
-        visited.add(v);
-
-        const direct = directXYPoint(v);
-        if (direct) return direct;
-
-        const priorityKeys = [
-          "mapPoint",
-          "point",
-          "Point",
-          "location",
-          "Location",
-          "center",
-          "Center",
-          "result",
-          "Result",
-          "data",
-          "Data"
-        ];
-
-        for (const key of priorityKeys) {
-          if (Object.prototype.hasOwnProperty.call(v, key)) {
-            const found = walk(v[key], depth + 1);
-            if (found) return found;
-          }
-        }
-
-        for (const key of Object.keys(v)) {
-          const found = walk(v[key], depth + 1);
-          if (found) return found;
-        }
-
-        return null;
-      }
-
-      return walk(value, 0);
+    function normalizeText(value) {
+      return cleanText(value)
+        .toLowerCase()
+        .replace(/["'׳״]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
     }
 
-    function extractStrictGeometryPoint(item) {
-      if (!item || typeof item !== "object") return null;
-
-      const direct = directXYPoint(item);
-      if (direct) return direct;
-
-      const geometryKeys = [
-        "Shape",
-        "shape",
-        "SHAPE",
-        "Geometry",
-        "geometry",
-        "GEOMETRY",
-        "Geom",
-        "geom",
-        "WKT",
-        "wkt",
-        "shapeWKT",
-        "ShapeWKT",
-        "geometryWKT",
-        "GeometryWKT"
-      ];
-
-      for (const key of geometryKeys) {
-        if (Object.prototype.hasOwnProperty.call(item, key)) {
-          const point = parseGeometryValue(item[key]);
-          if (point) return point;
-        }
-      }
-
-      if (Array.isArray(item.Values)) {
-        for (const value of item.Values) {
-          if (typeof value === "string" && looksLikeWkt(value)) {
-            const point = parseWkt(value);
-            if (point) return point;
-          }
-        }
-      }
-
-      const wktString = findAnyWktString(item, 0);
-      if (wktString) {
-        const point = parseWkt(wktString);
-        if (point) return point;
-      }
-
-      return null;
-    }
-
-    function directXYPoint(obj) {
-      if (!obj || typeof obj !== "object") return null;
-
-      const possibleX =
-        obj.x ?? obj.X ??
-        obj.mapX ?? obj.MapX ??
-        obj.itmX ?? obj.ITMX;
-
-      const possibleY =
-        obj.y ?? obj.Y ??
-        obj.mapY ?? obj.MapY ??
-        obj.itmY ?? obj.ITMY;
-
-      const point = {
-        x: Number(possibleX),
-        y: Number(possibleY)
-      };
-
-      return isValidIsraelGridPoint(point) ? point : null;
-    }
-
-    function parseGeometryValue(value) {
-      if (!value) return null;
-
-      if (typeof value === "string") {
-        return parseWkt(value);
-      }
-
-      if (Array.isArray(value)) {
-        for (const item of value) {
-          const point = parseGeometryValue(item);
-          if (point) return point;
-        }
-        return null;
-      }
-
-      if (typeof value === "object") {
-        const direct = directXYPoint(value);
-        if (direct) return direct;
-
-        const keys = Object.keys(value);
-        for (const key of keys) {
-          const point = parseGeometryValue(value[key]);
-          if (point) return point;
-        }
-      }
-
-      return null;
-    }
-
-    function looksLikeWkt(text) {
-      return /POINT|MULTIPOINT|LINESTRING|POLYGON|MULTIPOLYGON/i.test(String(text));
-    }
-
-    function parseWkt(text) {
-      if (typeof text !== "string" || !looksLikeWkt(text)) return null;
-
-      const pointMatch = text.match(/POINT\s*\(\s*([\d.\-]+)\s+([\d.\-]+)\s*\)/i);
-
-      if (pointMatch) {
-        const point = {
-          x: Number(pointMatch[1]),
-          y: Number(pointMatch[2])
-        };
-
-        return isValidIsraelGridPoint(point) ? point : null;
-      }
-
-      const pairMatches = Array.from(text.matchAll(/([\d.\-]+)\s+([\d.\-]+)/g));
-
-      const points = pairMatches
-        .map(function (m) {
-          return {
-            x: Number(m[1]),
-            y: Number(m[2])
-          };
-        })
-        .filter(isValidIsraelGridPoint);
-
-      return centroid(points);
-    }
-
-    function findAnyWktString(value, depth) {
-      if (!value || depth > 5) return null;
-
-      if (typeof value === "string") {
-        return looksLikeWkt(value) ? value : null;
-      }
-
-      if (Array.isArray(value)) {
-        for (const item of value) {
-          const found = findAnyWktString(item, depth + 1);
-          if (found) return found;
-        }
-        return null;
-      }
-
-      if (typeof value !== "object") return null;
-
-      for (const key of Object.keys(value)) {
-        const found = findAnyWktString(value[key], depth + 1);
-        if (found) return found;
-      }
-
-      return null;
-    }
-
-    function centroid(points) {
-      if (!points || !points.length) return null;
-
-      let sx = 0;
-      let sy = 0;
-
-      points.forEach(function (p) {
-        sx += p.x;
-        sy += p.y;
-      });
-
-      return {
-        x: sx / points.length,
-        y: sy / points.length
-      };
-    }
-
-    function isValidIsraelGridPoint(point) {
-      const x = Number(point && point.x);
-      const y = Number(point && point.y);
-
-      return (
-        Number.isFinite(x) &&
-        Number.isFinite(y) &&
-        x >= 50000 &&
-        x <= 350000 &&
-        y >= 350000 &&
-        y <= 850000
-      );
-    }
-
-    function distanceMeters(p1, p2) {
-      return Math.hypot(
-        Number(p2.x) - Number(p1.x),
-        Number(p2.y) - Number(p1.y)
-      );
-    }
-
-    function itmToWgs84(x, y) {
-      if (!window.proj4) return null;
-
-      try {
-        const result = proj4(ITM, WGS84, [Number(x), Number(y)]);
-
-        return {
-          lon: result[0],
-          lat: result[1]
-        };
-      } catch (error) {
-        print("ITM to WGS84 conversion error", normalizeError(error));
-        return null;
-      }
-    }
-
-    function wgs84ToItm(lat, lon) {
-      if (!window.proj4) return null;
-
-      try {
-        const result = proj4(WGS84, ITM, [Number(lon), Number(lat)]);
-
-        return {
-          x: result[0],
-          y: result[1]
-        };
-      } catch (error) {
-        print("WGS84 to ITM conversion error", normalizeError(error));
-        return null;
-      }
-    }
-
-    function addLatLonToNearest() {
-      if (!state.lastNearest) return;
-
-      const converted = itmToWgs84(state.lastNearest.x, state.lastNearest.y);
-
-      if (!converted) return;
-
-      state.lastNearest.lat = converted.lat;
-      state.lastNearest.lon = converted.lon;
-    }
-
-    function buildGoogleMapsNavigationUrl(mode) {
-      if (!state.lastNearest) {
-        return "";
-      }
-
-      if (!Number.isFinite(state.lastNearest.lat) || !Number.isFinite(state.lastNearest.lon)) {
-        addLatLonToNearest();
-      }
-
-      if (!Number.isFinite(state.lastNearest.lat) || !Number.isFinite(state.lastNearest.lon)) {
-        return "";
-      }
-
-      const destination = state.lastNearest.lat + "," + state.lastNearest.lon;
-
-      const params = new URLSearchParams();
-      params.set("api", "1");
-      params.set("destination", destination);
-      params.set("dir_action", "navigate");
-
-      if (mode) {
-        params.set("travelmode", mode);
-      }
-
-      if (
-        state.myLocation &&
-        Number.isFinite(state.myLocation.lat) &&
-        Number.isFinite(state.myLocation.lon)
-      ) {
-        params.set("origin", state.myLocation.lat + "," + state.myLocation.lon);
-      }
-
-      return "https://www.google.com/maps/dir/?" + params.toString();
-    }
-
-    function openGoogleMapsNavigation(mode) {
-      const url = buildGoogleMapsNavigationUrl(mode);
-
-      if (!url) {
-        setStatus("אין עדיין מקלט עם קואורדינטות לניווט.", true);
-        return;
-      }
-
-      if (isMobile()) {
-        window.location.href = url;
-      } else {
-        window.open(url, "_blank", "noopener,noreferrer");
-      }
-    }
-
-    async function copyNavigationLink(mode) {
-      const url = buildGoogleMapsNavigationUrl(mode);
-
-      if (!url) {
-        setStatus("אין קישור ניווט להעתקה.", true);
-        return;
-      }
-
-      try {
-        await navigator.clipboard.writeText(url);
-        setStatus("קישור הניווט הועתק.");
-      } catch {
-        setStatus("לא הצלחתי להעתיק. פתח את הניווט והעתק משם.", true);
-      }
-    }
-
-    async function shareShelter() {
-      const url = buildGoogleMapsNavigationUrl("walking");
-
-      if (!url || !state.lastNearest) {
-        setStatus("אין יעד לשיתוף.", true);
-        return;
-      }
-
-      const text =
-        "היעד הקרוב: " +
-        state.lastNearest.name +
-        " | מרחק אווירי: " +
-        formatDistance(state.lastNearest.distanceMeters);
-
-      if (navigator.share) {
-        try {
-          await navigator.share({
-            title: "ShelterMap - יעד קרוב",
-            text,
-            url
-          });
-          return;
-        } catch {
-          return;
-        }
-      }
-
-      await copyNavigationLink("walking");
-    }
-
-    function updateNavigationBox() {
-      const box = document.getElementById("navigationBox");
-
-      if (!box) return;
-
-      if (!state.lastNearest) {
-        box.textContent = "עדיין אין יעד לניווט. לחץ על “השתמש במיקום שלי ומצא מקלט”.";
-        return;
-      }
-
-      addLatLonToNearest();
-
-      box.innerHTML =
-        "<strong>יעד ניווט:</strong><br>" +
-        escapeHtml(state.lastNearest.name) + "<br><br>" +
-        "<strong>מרחק אווירי:</strong><br>" +
-        formatDistance(state.lastNearest.distanceMeters) + "<br><br>" +
-        "<strong>Google Maps:</strong><br>" +
-        "Lat: " + Number(state.lastNearest.lat).toFixed(6) + "<br>" +
-        "Lon: " + Number(state.lastNearest.lon).toFixed(6) + "<br><br>" +
-        (state.myLocation
-          ? "<strong>נקודת מוצא:</strong><br>מיקום ה־GPS שלך"
-          : "<strong>נקודת מוצא:</strong><br>Google Maps יבקש לבחור מיקום מוצא");
-    }
-
-    async function drawResult(clicked, nearest) {
-      await drawClickedPoint(clicked, true);
-
-      if (state.myLocation) {
-        await drawMyLocationPoint(state.myLocation);
-      }
-
-      await drawNearestShelterPoint(nearest);
-      await drawLineToShelter(clicked, nearest);
-    }
-
-    function clearMapResult() {
-      state.lastNearest = null;
-      state.lastCandidates = [];
-      state.lastRadius = null;
-
-      document.getElementById("nearestResult").textContent = "עדיין לא נבחרה נקודה.";
-      renderResultsTable();
-      updateNavigationBox();
-      updateDashboard();
-      setProgress(0, 1);
-
-      if (window.govmap && typeof govmap.displayGeometries === "function") {
-        toPromise(govmap.displayGeometries({
-          wkts: [],
-          names: [],
-          geometryType: govmap.geometryType.POLYLINE,
-          clearExisting: true,
-          data: {}
-        })).catch(function () {});
-      }
-
-      setStatus("התוצאה נוקתה.");
-    }
-
-    function drawClickedPoint(clicked, shouldClear) {
-      return toPromise(govmap.displayGeometries({
-        circleGeometries: [
-          {
-            x: clicked.x,
-            y: clicked.y,
-            radius: 65
-          }
-        ],
-        names: ["clicked_point"],
-        geometryType: govmap.geometryType.CIRCLE,
-        defaultSymbol: {
-          outlineColor: [34, 197, 94, 1],
-          outlineWidth: 4,
-          fillColor: [34, 197, 94, 0.35]
-        },
-        symbols: [],
-        clearExisting: shouldClear,
-        showBubble: true,
-        data: {
-          tooltips: ["נקודת החיפוש"],
-          headers: ["נקודת החיפוש"],
-          bubbleHTML:
-            "<div style='direction:rtl;text-align:right;font-family:Arial;padding:8px'>" +
-            "<b>נקודת החיפוש</b><br>" +
-            "X: " + Math.round(clicked.x) + "<br>" +
-            "Y: " + Math.round(clicked.y) +
-            "</div>",
-          bubbleHTMLParameters: [[]]
-        }
-      }));
-    }
-
-    function drawMyLocationPoint(location) {
-      return toPromise(govmap.displayGeometries({
-        circleGeometries: [
-          {
-            x: location.x,
-            y: location.y,
-            radius: Math.max(60, Math.min(250, Number(location.accuracy || 70)))
-          }
-        ],
-        names: ["my_location"],
-        geometryType: govmap.geometryType.CIRCLE,
-        defaultSymbol: {
-          outlineColor: [56, 189, 248, 1],
-          outlineWidth: 4,
-          fillColor: [56, 189, 248, 0.25]
-        },
-        symbols: [],
-        clearExisting: false,
-        showBubble: true,
-        data: {
-          tooltips: ["המיקום שלי"],
-          headers: ["המיקום שלי"],
-          bubbleHTML:
-            "<div style='direction:rtl;text-align:right;font-family:Arial;padding:8px'>" +
-            "<b>המיקום שלי</b><br>" +
-            "דיוק: " + Math.round(location.accuracy || 0) + " מטר" +
-            "</div>",
-          bubbleHTMLParameters: [[]]
-        }
-      }));
-    }
-
-    function drawNearestShelterPoint(nearest) {
-      return toPromise(govmap.displayGeometries({
-        circleGeometries: [
-          {
-            x: nearest.x,
-            y: nearest.y,
-            radius: 80
-          }
-        ],
-        names: ["nearest_shelter"],
-        geometryType: govmap.geometryType.CIRCLE,
-        defaultSymbol: {
-          outlineColor: [239, 68, 68, 1],
-          outlineWidth: 4,
-          fillColor: [239, 68, 68, 0.35]
-        },
-        symbols: [],
-        clearExisting: false,
-        showBubble: true,
-        data: {
-          tooltips: [nearest.name],
-          headers: [nearest.name],
-          bubbleHTML:
-            "<div style='direction:rtl;text-align:right;font-family:Arial;padding:8px'>" +
-            "<b>" + escapeHtml(nearest.name) + "</b><br>" +
-            "מרחק אווירי: " + formatDistance(nearest.distanceMeters) + "<br>" +
-            "ObjectId: " + escapeHtml(nearest.objectId || "—") +
-            "</div>",
-          bubbleHTMLParameters: [[]]
-        }
-      }));
-    }
-
-    function drawLineToShelter(clicked, nearest) {
-      return toPromise(govmap.displayGeometries({
-        wkts: [
-          "LINESTRING(" +
-            clicked.x + " " + clicked.y + ", " +
-            nearest.x + " " + nearest.y +
-          ")"
-        ],
-        names: ["nearest_shelter_line"],
-        geometryType: govmap.geometryType.POLYLINE,
-        defaultSymbol: {
-          color: [239, 68, 68, 1],
-          width: 5
-        },
-        symbols: [],
-        clearExisting: false,
-        showBubble: true,
-        data: {
-          tooltips: ["מרחק אווירי למקלט הקרוב"],
-          headers: ["מרחק אווירי"],
-          bubbleHTML:
-            "<div style='direction:rtl;text-align:right;font-family:Arial;padding:8px'>" +
-            "<b>מרחק אווירי</b><br>" +
-            "אל: " + escapeHtml(nearest.name) + "<br>" +
-            "מרחק: " + formatDistance(nearest.distanceMeters) +
-            "</div>",
-          bubbleHTMLParameters: [[]]
-        }
-      }));
-    }
-
-    function updateNearestResult(clicked, nearest, searchResult) {
-      addLatLonToNearest();
-
-      document.getElementById("nearestResult").innerHTML =
-        "<strong>היעד הקרוב ביותר:</strong><br>" +
-        escapeHtml(nearest.name) +
-        "<div class='distanceBig'>" + formatDistance(nearest.distanceMeters) + "</div>" +
-        "<strong>שכבה:</strong><br>" +
-        escapeHtml(nearest.layerName || searchResult.layerName) + "<br><br>" +
-        "<strong>טווח שבו נמצא:</strong><br>" +
-        formatDistance(searchResult.radius) + "<br><br>" +
-        "<strong>נקודת הבדיקה:</strong><br>" +
-        "X: " + Math.round(clicked.x) + " · Y: " + Math.round(clicked.y) + "<br><br>" +
-        "<strong>היעד:</strong><br>" +
-        "X: " + Math.round(nearest.x) + " · Y: " + Math.round(nearest.y) + "<br>" +
-        "Lat: " + Number(nearest.lat).toFixed(6) + " · Lon: " + Number(nearest.lon).toFixed(6) +
-        (nearest.objectId ? "<br><br><strong>ObjectId:</strong><br>" + escapeHtml(nearest.objectId) : "") +
-        "<br><br><button class='greenBtn' onclick=\"openGoogleMapsNavigation('walking')\">פתח ניווט רגלי ב־Google Maps</button>";
-    }
-
-    function updateDashboard() {
-      document.getElementById("activeLayerTitle").textContent = getLayerOrder().length === 1 ? getLayerOrder()[0] : (getLayerOrder().length + " שכבות");
-      document.getElementById("measureState").textContent = state.measuring ? "פעיל" : "כבוי";
-
-      document.getElementById("lastRadius").textContent =
-        state.lastRadius ? formatDistanceShort(state.lastRadius) : "—";
-
-      document.getElementById("lastDistance").textContent =
-        state.lastNearest ? formatDistanceShort(state.lastNearest.distanceMeters) : "—";
-
-      document.getElementById("topLastDistance").textContent =
-        state.lastNearest ? formatDistanceShort(state.lastNearest.distanceMeters) : "—";
-
-      document.getElementById("topRequestsCount").textContent =
-        state.requestsCounter || 0;
-
-      document.getElementById("gpsState").textContent =
-        state.myLocation ? "פעיל" : "לא פעיל";
-
-      document.getElementById("lastSearchName").textContent =
-        state.lastSettlementName ? state.lastSettlementName : "—";
-    }
-
-    function renderResultsTable() {
-      const tbody = document.getElementById("resultsTable");
-      const search = document.getElementById("resultsSearch")
-        ? document.getElementById("resultsSearch").value.trim().toLowerCase()
-        : "";
-
-      tbody.innerHTML = "";
-
-      const rows = (state.lastCandidates || []).filter(function (candidate) {
-        const text = [
-          candidate.name,
-          candidate.address,
-          candidate.description,
-          candidate.objectId,
-          candidate.layerName
-        ].join(" ").toLowerCase();
-
-        return !search || text.includes(search);
-      });
-
-      if (!rows.length) {
-        const tr = document.createElement("tr");
-        tr.innerHTML =
-          "<td colspan='4' style='color:#94a3b8;text-align:center;'>אין תוצאות להצגה</td>";
-        tbody.appendChild(tr);
-        return;
-      }
-
-      rows.forEach(function (candidate) {
-        const realIndex = state.lastCandidates.indexOf(candidate);
-        const tr = document.createElement("tr");
-
-        tr.innerHTML =
-          "<td>" +
-            "<strong>" + escapeHtml(candidate.name) + "</strong>" +
-            "<br><span style='color:#38bdf8'>" + escapeHtml(candidate.layerName || "—") + "</span>" +
-            (candidate.address ? "<br><span style='color:#94a3b8'>" + escapeHtml(candidate.address) + "</span>" : "") +
-          "</td>" +
-          "<td dir='ltr'>" + formatDistance(candidate.distanceMeters) + "</td>" +
-          "<td>" + escapeHtml(candidate.objectId || "—") + "</td>" +
-          "<td><button class='darkBtn' onclick='zoomToResult(" + realIndex + ")'>זום</button></td>";
-
-        tbody.appendChild(tr);
-      });
-    }
-
-    function zoomToResult(index) {
-      if (!requireReady()) return;
-
-      const candidate = state.lastCandidates[index];
-
-      if (!candidate || !isValidIsraelGridPoint(candidate)) {
-        setStatus("אין X/Y תקין לתוצאה הזאת.", true);
-        return;
-      }
-
-      govmap.zoomToXY({
-        x: candidate.x,
-        y: candidate.y,
-        level: isMobile() ? 10 : 9,
-        marker: true
-      });
-
-      setStatus("זום אל: " + candidate.name);
-      collapseMobileSheet();
-    }
-
-    function changeBackground() {
-      if (!requireReady()) return;
-
-      const bg = Number(document.getElementById("backgroundSelect").value);
-
-      try {
-        govmap.setBackground(bg);
-        saveSettings();
-        setStatus("רקע המפה הוחלף.");
-      } catch (error) {
-        setStatus("לא הצלחתי להחליף רקע.", true);
-        print("setBackground error", normalizeError(error));
-      }
-    }
-
-    function zoomManual() {
-      if (!requireReady()) return;
-
-      const x = Number(document.getElementById("manualX").value);
-      const y = Number(document.getElementById("manualY").value);
-      const level = Number(document.getElementById("manualZoom").value);
-
-      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(level)) {
-        setStatus("צריך X/Y/זום תקינים.", true);
-        return;
-      }
-
-      govmap.zoomToXY({
-        x,
-        y,
-        level,
-        marker: true
-      });
-
-      setStatus("בוצע מעבר לנקודה.");
-      collapseMobileSheet();
-    }
-
-    function clearSearchCache() {
-      searchCache.clear();
-      inFlightCache.clear();
-      state.cacheHits = 0;
-      updateDashboard();
-      setStatus("ה־Cache נוקה.");
-    }
-
-    function resetGovMapTool() {
-      if (window.govmap && typeof govmap.setDefaultTool === "function") {
-        govmap.setDefaultTool();
-      }
-    }
-
-    function toPromise(result) {
-      return new Promise(function (resolve, reject) {
-        if (!result) {
-          resolve(result);
-          return;
-        }
-
-        if (typeof result.then === "function") {
-          result.then(resolve, reject);
-          return;
-        }
-
-        if (typeof result.done === "function") {
-          result.done(resolve);
-
-          if (typeof result.fail === "function") {
-            result.fail(reject);
-          }
-
-          return;
-        }
-
-        resolve(result);
-      });
-    }
-
-    function formatDistance(meters) {
-      if (!Number.isFinite(Number(meters))) return "—";
-
-      const m = Number(meters);
-
-      if (m < 1000) {
-        return Math.round(m) + " מטר";
-      }
-
-      return (m / 1000).toFixed(2) + " ק״מ";
-    }
-
-    function formatDistanceShort(meters) {
-      if (!Number.isFinite(Number(meters))) return "—";
-
-      const m = Number(meters);
-
-      if (m < 1000) {
-        return Math.round(m) + "m";
-      }
-
-      return (m / 1000).toFixed(1) + "km";
+    function unique(arr) {
+      return [...new Set(arr.filter(Boolean))];
     }
 
     function escapeHtml(value) {
@@ -3357,11 +1776,19 @@
         .replace(/'/g, "&#039;");
     }
 
-    window.addEventListener("resize", function () {
-      if (!isMobile()) {
-        document.body.classList.remove("sheetExpanded", "sheetCompact");
+    function makeGoogleMapsNavUrl(result) {
+      if (!result?.x || !result?.y || !window.proj4) return "";
+
+      try {
+        const [lon, lat] = proj4(ITM, WGS84, [result.x, result.y]);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return "";
+        return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=walking`;
+      } catch {
+        return "";
       }
-    });
+    }
+
+    document.addEventListener("DOMContentLoaded", initUi);
   </script>
 </body>
 </html>
