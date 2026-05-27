@@ -2,7 +2,10 @@
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#08111f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="ShelterMap" />
 
   <title>ShelterMap Navigation</title>
 
@@ -17,10 +20,11 @@
   <style>
     :root {
       --bg: #08111f;
-      --panel: rgba(15, 23, 42, 0.95);
-      --card: rgba(30, 41, 59, 0.92);
-      --dark: rgba(2, 6, 23, 0.62);
-      --border: rgba(148, 163, 184, 0.25);
+      --panel: rgba(15, 23, 42, 0.96);
+      --panel2: rgba(15, 23, 42, 0.82);
+      --card: rgba(30, 41, 59, 0.94);
+      --dark: rgba(2, 6, 23, 0.66);
+      --border: rgba(148, 163, 184, 0.24);
       --text: #f8fafc;
       --muted: #94a3b8;
       --blue: #38bdf8;
@@ -28,12 +32,15 @@
       --red: #ef4444;
       --yellow: #facc15;
       --orange: #fb923c;
-      --shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
+      --shadow: 0 18px 45px rgba(0, 0, 0, 0.36);
       --radius: 18px;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-top: env(safe-area-inset-top, 0px);
     }
 
     * {
       box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
     }
 
     html,
@@ -45,6 +52,7 @@
       font-family: Arial, "Noto Sans Hebrew", sans-serif;
       background: var(--bg);
       color: var(--text);
+      overscroll-behavior: none;
     }
 
     #map {
@@ -53,11 +61,12 @@
       width: 100vw;
       height: 100vh;
       background: #111827;
+      touch-action: pan-x pan-y;
     }
 
     .topbar {
       position: fixed;
-      top: 16px;
+      top: calc(16px + var(--safe-top));
       right: 16px;
       left: 16px;
       z-index: 20;
@@ -72,7 +81,8 @@
     .quickStats,
     .panel,
     .status,
-    .floatingActions button {
+    .floatingActions button,
+    .mobileActionBar {
       background: var(--panel);
       backdrop-filter: blur(14px);
       border: 1px solid var(--border);
@@ -104,18 +114,24 @@
       font-weight: 900;
       color: white;
       box-shadow: 0 10px 28px rgba(239, 68, 68, 0.35);
+      flex: 0 0 auto;
     }
 
     .brandTitle {
       font-size: 19px;
       font-weight: 900;
       letter-spacing: -0.4px;
+      white-space: nowrap;
     }
 
     .brandSub {
       font-size: 12px;
       color: var(--muted);
       margin-top: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 260px;
     }
 
     .searchBox {
@@ -155,7 +171,7 @@
 
     .layout {
       position: fixed;
-      top: 92px;
+      top: calc(92px + var(--safe-top));
       right: 16px;
       bottom: 16px;
       z-index: 19;
@@ -172,11 +188,22 @@
       flex-direction: column;
     }
 
+    .sheetHandle {
+      display: none;
+      width: 46px;
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.45);
+      margin: 9px auto 5px;
+      flex: 0 0 auto;
+    }
+
     .tabs {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
       border-bottom: 1px solid var(--border);
       background: rgba(2, 6, 23, 0.55);
+      flex: 0 0 auto;
     }
 
     .tab {
@@ -188,6 +215,7 @@
       font-weight: 800;
       border-bottom: 3px solid transparent;
       font-size: 12px;
+      min-height: 48px;
     }
 
     .tab.active {
@@ -199,6 +227,7 @@
     .panelBody {
       overflow: auto;
       padding: 14px;
+      -webkit-overflow-scrolling: touch;
     }
 
     .card {
@@ -276,9 +305,9 @@
       background: rgba(2, 6, 23, 0.55);
       color: var(--text);
       border-radius: 13px;
-      padding: 10px 12px;
+      padding: 11px 12px;
       outline: none;
-      font-size: 14px;
+      font-size: 16px;
     }
 
     input:focus,
@@ -301,13 +330,15 @@
       width: 100%;
       border: none;
       border-radius: 13px;
-      padding: 10px 12px;
+      padding: 11px 12px;
       background: #334155;
       color: white;
       font-size: 13px;
       font-weight: 900;
       cursor: pointer;
       transition: transform 0.08s ease, opacity 0.2s ease;
+      min-height: 44px;
+      touch-action: manipulation;
     }
 
     button:hover {
@@ -367,6 +398,7 @@
 
     .pill {
       width: auto;
+      min-height: 36px;
       padding: 8px 10px;
       border-radius: 999px;
       background: rgba(15, 23, 42, 0.86);
@@ -387,6 +419,7 @@
       padding: 13px;
       line-height: 1.65;
       font-size: 14px;
+      overflow-wrap: anywhere;
     }
 
     .result strong {
@@ -445,6 +478,7 @@
       max-height: 360px;
       border: 1px solid var(--border);
       border-radius: 15px;
+      -webkit-overflow-scrolling: touch;
     }
 
     table {
@@ -494,7 +528,7 @@
     .floatingActions {
       position: fixed;
       left: 16px;
-      bottom: 16px;
+      bottom: calc(16px + var(--safe-bottom));
       z-index: 18;
       display: flex;
       gap: 8px;
@@ -507,10 +541,31 @@
       border-radius: 13px;
     }
 
+    .mobileActionBar {
+      display: none;
+      position: fixed;
+      right: 10px;
+      left: 10px;
+      bottom: calc(10px + var(--safe-bottom));
+      z-index: 25;
+      border-radius: 20px;
+      padding: 8px;
+      grid-template-columns: 1.2fr 1fr 1fr 0.8fr;
+      gap: 7px;
+      pointer-events: auto;
+    }
+
+    .mobileActionBar button {
+      padding: 10px 8px;
+      font-size: 12px;
+      min-height: 46px;
+      border-radius: 15px;
+    }
+
     .status {
       position: fixed;
       left: 16px;
-      top: 92px;
+      top: calc(92px + var(--safe-top));
       z-index: 18;
       max-width: 520px;
       border-radius: 18px;
@@ -529,9 +584,41 @@
       display: none;
     }
 
+    .sheetCompact .layout {
+      height: 118px;
+    }
+
+    .sheetExpanded .layout {
+      height: 78vh;
+    }
+
     @media (max-width: 980px) {
       .topbar {
+        top: calc(10px + var(--safe-top));
+        right: 10px;
+        left: 10px;
         grid-template-columns: 1fr;
+      }
+
+      .brand {
+        min-height: 56px;
+        padding: 10px 12px;
+        background: rgba(15, 23, 42, 0.86);
+      }
+
+      .logo {
+        width: 38px;
+        height: 38px;
+        border-radius: 13px;
+      }
+
+      .brandTitle {
+        font-size: 18px;
+      }
+
+      .brandSub {
+        font-size: 11px;
+        max-width: calc(100vw - 110px);
       }
 
       .searchBox,
@@ -540,16 +627,26 @@
       }
 
       .layout {
-        top: 92px;
-        right: 10px;
-        left: 10px;
-        bottom: 10px;
-        width: auto;
-        max-height: 74vh;
+        top: auto;
+        right: 0;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        height: 64vh;
+        max-height: calc(100vh - 86px - var(--safe-top));
+        pointer-events: none;
+        padding: 0 8px calc(74px + var(--safe-bottom));
+        transition: height 0.2s ease;
       }
 
-      .status {
-        display: none;
+      .panel {
+        border-radius: 24px 24px 0 0;
+        background: rgba(15, 23, 42, 0.97);
+        pointer-events: auto;
+      }
+
+      .sheetHandle {
+        display: block;
       }
 
       .tabs {
@@ -558,7 +655,90 @@
 
       .tab {
         font-size: 11px;
-        padding: 12px 4px;
+        padding: 10px 3px;
+        min-height: 44px;
+      }
+
+      .panelBody {
+        padding: 12px;
+        padding-bottom: 18px;
+      }
+
+      .card {
+        padding: 12px;
+        border-radius: 17px;
+        margin-bottom: 10px;
+      }
+
+      .row,
+      .row3 {
+        grid-template-columns: 1fr;
+      }
+
+      .statsGrid {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .statCard {
+        padding: 10px;
+      }
+
+      .statValue {
+        font-size: 18px;
+      }
+
+      .distanceBig {
+        font-size: 28px;
+      }
+
+      .status {
+        top: auto;
+        left: 10px;
+        right: 10px;
+        bottom: calc(74px + var(--safe-bottom));
+        max-width: none;
+        font-size: 12px;
+        padding: 10px 12px;
+        background: rgba(15, 23, 42, 0.9);
+        display: none;
+      }
+
+      .floatingActions {
+        display: none;
+      }
+
+      .mobileActionBar {
+        display: grid;
+      }
+
+      table {
+        min-width: 360px;
+      }
+
+      th,
+      td {
+        padding: 8px;
+        font-size: 11px;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .layout {
+        height: 62vh;
+      }
+
+      .panelBody {
+        padding: 10px;
+      }
+
+      button {
+        font-size: 12px;
+      }
+
+      .pill {
+        font-size: 11px;
+        padding: 7px 9px;
       }
     }
   </style>
@@ -568,7 +748,7 @@
   <div id="map"></div>
 
   <header class="topbar">
-    <div class="brand">
+    <div class="brand" onclick="toggleMobileSheet()">
       <div class="logo">SM</div>
       <div>
         <div class="brandTitle">ShelterMap</div>
@@ -598,6 +778,8 @@
 
   <main class="layout">
     <aside class="panel">
+      <div class="sheetHandle" onclick="toggleMobileSheet()"></div>
+
       <nav class="tabs">
         <button class="tab active" onclick="showTab('dashboard', this)">סקירה</button>
         <button class="tab" onclick="showTab('navigate', this)">ניווט</button>
@@ -683,20 +865,20 @@
           <div class="card">
             <div class="cardTitle">ניווט ב־Google Maps</div>
 
-            <button class="greenBtn" onclick="openGoogleMapsNavigation('walking')">ניווט רגלי למקלט הקרוב</button>
+            <button class="greenBtn" onclick="useMyLocationFindAndOpenNavigation()">מצא מקלט ופתח ניווט רגלי</button>
 
             <div class="row">
+              <button class="primary" onclick="openGoogleMapsNavigation('walking')">ניווט רגלי</button>
               <button class="blueBtn" onclick="openGoogleMapsNavigation('driving')">ניווט ברכב</button>
+            </div>
+
+            <div class="row">
               <button class="darkBtn" onclick="openGoogleMapsNavigation('bicycling')">אופניים</button>
-            </div>
-
-            <div class="row">
               <button class="darkBtn" onclick="openGoogleMapsNavigation('transit')">תחבורה ציבורית</button>
-              <button class="darkBtn" onclick="openGoogleMapsNavigation('')">פתח ב־Maps</button>
             </div>
 
             <div class="row">
-              <button class="darkBtn" onclick="copyNavigationLink('walking')">העתק קישור ניווט</button>
+              <button class="darkBtn" onclick="copyNavigationLink('walking')">העתק קישור</button>
               <button class="darkBtn" onclick="shareShelter()">שתף מקלט</button>
             </div>
 
@@ -757,17 +939,17 @@
             <div class="row3">
               <div>
                 <label for="manualX">X</label>
-                <input id="manualX" value="194388" />
+                <input id="manualX" value="194388" inputmode="numeric" />
               </div>
 
               <div>
                 <label for="manualY">Y</label>
-                <input id="manualY" value="656159" />
+                <input id="manualY" value="656159" inputmode="numeric" />
               </div>
 
               <div>
                 <label for="manualZoom">זום</label>
-                <input id="manualZoom" value="8" />
+                <input id="manualZoom" value="8" inputmode="numeric" />
               </div>
             </div>
 
@@ -828,8 +1010,8 @@
             <select id="maxDistanceSelect" onchange="saveSettings()">
               <option value="5000">5 ק״מ</option>
               <option value="10000">10 ק״מ</option>
-              <option value="20000">20 ק״מ</option>
-              <option value="50000" selected>50 ק״מ</option>
+              <option value="20000" selected>20 ק״מ</option>
+              <option value="50000">50 ק״מ</option>
               <option value="100000">100 ק״מ</option>
               <option value="200000">200 ק״מ</option>
             </select>
@@ -844,8 +1026,8 @@
             <label for="parallelSelect">בקשות במקביל</label>
             <select id="parallelSelect" onchange="saveSettings()">
               <option value="1">1 — הכי יציב</option>
-              <option value="2">2</option>
-              <option value="3" selected>3 — מומלץ</option>
+              <option value="2" selected>2 — מומלץ לטלפון</option>
+              <option value="3">3</option>
               <option value="4">4 — מהיר יותר</option>
             </select>
 
@@ -879,7 +1061,7 @@
             </div>
 
             <div class="warning">
-              אם GOVMAP מגיב לאט, הורד את “בקשות במקביל” ל־1 או 2.
+              בטלפון עדיף להתחיל עם 20 ק״מ, מצב מאוזן ו־2 בקשות במקביל. אם הכול מהיר ויציב, אפשר להעלות.
             </div>
           </div>
         </section>
@@ -895,6 +1077,13 @@
     <button onclick="cancelSearch()">בטל</button>
   </div>
 
+  <nav class="mobileActionBar">
+    <button class="greenBtn" onclick="useMyLocationAndFindShelter()">GPS</button>
+    <button class="primary" onclick="openGoogleMapsNavigation('walking')">נווט</button>
+    <button class="blueBtn" onclick="showMobileTab('search')">חיפוש</button>
+    <button class="darkBtn" onclick="toggleMobileSheet()">פאנל</button>
+  </nav>
+
   <script>
     const GOVMAP_TOKEN = "ede9a5fd-7c23-432f-8ffb-d85feffa3f3c";
 
@@ -902,10 +1091,12 @@
     const LAYER_FALLBACKS = ["BOMBSHELTERS", "417"];
     const GOVMAP_MAX_SAFE_RADIUS = 3000;
 
-    const SETTINGS_KEY = "sheltermap_settings_v3";
+    const SETTINGS_KEY = "sheltermap_settings_mobile_v4";
     const RECENT_SEARCHES_KEY = "sheltermap_recent_searches_v1";
 
+    const CACHE_MAX_ITEMS = 850;
     const searchCache = new Map();
+    const inFlightCache = new Map();
 
     const WGS84 = "EPSG:4326";
     const ITM = "EPSG:2039";
@@ -926,7 +1117,8 @@
       requestsCounter: 0,
       cacheHits: 0,
       totalCenters: 0,
-      checkedCenters: 0
+      checkedCenters: 0,
+      mobileSheetExpanded: false
     };
 
     function setupProjection() {
@@ -950,15 +1142,15 @@
         govmap.createMap("map", {
           token: GOVMAP_TOKEN,
           center: { x: 176000, y: 657000 },
-          level: 3,
+          level: isMobile() ? 4 : 3,
           background: document.getElementById("backgroundSelect").value || "1",
           layers: [getLayerName()],
           visibleLayers: [getLayerName()],
           showXY: true,
           identifyOnClick: false,
           layersMode: 2,
-          zoomButtons: true,
-          bgButton: true,
+          zoomButtons: !isMobile(),
+          bgButton: !isMobile(),
 
           onLoad: function () {
             state.ready = true;
@@ -966,8 +1158,9 @@
             renderResultsTable();
             renderRecentSearches();
             updateNavigationBox();
-            setStatus("המפה נטענה. אפשר להשתמש ב־GPS ולנווט למקלט הקרוב.");
-            print("GOVMAP loaded", { ready: true, layer: getLayerName() });
+            updateMyLocationBox();
+            setStatus("המפה נטענה. בטלפון מומלץ ללחוץ GPS ואז נווט.");
+            print("GOVMAP loaded", { ready: true, layer: getLayerName(), mobile: isMobile() });
           },
 
           onError: function (error) {
@@ -981,18 +1174,60 @@
       }
     }
 
+    function isMobile() {
+      return window.matchMedia("(max-width: 980px)").matches;
+    }
+
+    function toggleMobileSheet() {
+      if (!isMobile()) {
+        togglePanel();
+        return;
+      }
+
+      state.mobileSheetExpanded = !state.mobileSheetExpanded;
+      document.body.classList.toggle("sheetExpanded", state.mobileSheetExpanded);
+      document.body.classList.toggle("sheetCompact", !state.mobileSheetExpanded);
+    }
+
+    function expandMobileSheet() {
+      if (!isMobile()) return;
+      state.mobileSheetExpanded = true;
+      document.body.classList.add("sheetExpanded");
+      document.body.classList.remove("sheetCompact");
+    }
+
+    function collapseMobileSheet() {
+      if (!isMobile()) return;
+      state.mobileSheetExpanded = false;
+      document.body.classList.remove("sheetExpanded");
+      document.body.classList.remove("sheetCompact");
+    }
+
+    function showMobileTab(tabName) {
+      expandMobileSheet();
+      const tabButtons = Array.from(document.querySelectorAll(".tab"));
+      const target = tabButtons.find(function (btn) {
+        return btn.getAttribute("onclick") && btn.getAttribute("onclick").includes("'" + tabName + "'");
+      });
+
+      if (target) {
+        showTab(tabName, target);
+      }
+    }
+
     function showTab(tabName, button) {
       document.querySelectorAll(".tab").forEach(function (tab) {
         tab.classList.remove("active");
       });
 
-      button.classList.add("active");
+      if (button) button.classList.add("active");
 
       ["dashboard", "navigate", "search", "results", "settings"].forEach(function (name) {
         document.getElementById("tab-" + name).classList.add("hidden");
       });
 
       document.getElementById("tab-" + tabName).classList.remove("hidden");
+      expandMobileSheet();
     }
 
     function togglePanel() {
@@ -1045,7 +1280,8 @@
     function normalizeError(error) {
       return {
         message: error && error.message ? error.message : String(error),
-        stack: error && error.stack ? error.stack : null
+        stack: error && error.stack ? error.stack : null,
+        code: error && error.code ? error.code : null
       };
     }
 
@@ -1096,9 +1332,9 @@
     function resetSettings() {
       localStorage.removeItem(SETTINGS_KEY);
       document.getElementById("layerInput").value = DEFAULT_LAYER_NAME;
-      document.getElementById("maxDistanceSelect").value = "50000";
+      document.getElementById("maxDistanceSelect").value = "20000";
       document.getElementById("gridQualitySelect").value = "balanced";
-      document.getElementById("parallelSelect").value = "3";
+      document.getElementById("parallelSelect").value = "2";
       document.getElementById("backgroundSelect").value = "1";
       saveSettings();
       setStatus("ההגדרות אופסו.");
@@ -1122,21 +1358,21 @@
 
     function getMaxDistance() {
       const value = Number(document.getElementById("maxDistanceSelect").value);
-      return Number.isFinite(value) ? value : 50000;
+      return Number.isFinite(value) ? value : 20000;
     }
 
     function getGridSpacing() {
       const quality = document.getElementById("gridQualitySelect").value;
 
       if (quality === "fast") return 5400;
-      if (quality === "accurate") return 3400;
+      if (quality === "accurate") return 3300;
 
-      return 4200;
+      return 4100;
     }
 
     function getParallelLimit() {
       const value = Number(document.getElementById("parallelSelect").value);
-      return Number.isFinite(value) ? value : 3;
+      return Number.isFinite(value) ? value : 2;
     }
 
     function showShelterLayer() {
@@ -1206,7 +1442,7 @@
             govmap.zoomToXY({
               x: itm.x,
               y: itm.y,
-              level: 9,
+              level: isMobile() ? 10 : 9,
               marker: true
             });
 
@@ -1221,14 +1457,20 @@
             resolve(state.myLocation);
           },
           function (error) {
-            setStatus("לא התקבל מיקום GPS. בדוק הרשאות מיקום בדפדפן.", true);
+            const msg =
+              error.code === 1 ? "לא התקבלה הרשאת מיקום. אשר הרשאת GPS בדפדפן." :
+              error.code === 2 ? "המיקום לא זמין כרגע." :
+              error.code === 3 ? "זמן קבלת המיקום נגמר." :
+              "לא התקבל מיקום GPS.";
+
+            setStatus(msg, true);
             print("GPS error", normalizeError(error));
             resolve(null);
           },
           {
             enableHighAccuracy: true,
             timeout: 12000,
-            maximumAge: 15000
+            maximumAge: 10000
           }
         );
       });
@@ -1245,8 +1487,24 @@
       });
     }
 
+    async function useMyLocationFindAndOpenNavigation() {
+      const location = await useMyLocation();
+      if (!location) return;
+
+      await runNearestSearchFromPoint({
+        x: location.x,
+        y: location.y
+      });
+
+      if (state.lastNearest) {
+        openGoogleMapsNavigation("walking");
+      }
+    }
+
     function updateMyLocationBox() {
       const box = document.getElementById("myLocationBox");
+
+      if (!box) return;
 
       if (!state.myLocation) {
         box.textContent = "אין מיקום GPS עדיין.";
@@ -1335,7 +1593,7 @@
         govmap.zoomToXY({
           x: point.x,
           y: point.y,
-          level: 8,
+          level: isMobile() ? 9 : 8,
           marker: true
         });
 
@@ -1424,6 +1682,7 @@
       state.measureRequestId += 1;
 
       updateDashboard();
+      collapseMobileSheet();
       setStatus("מצב מדידה פעיל. לחץ על נקודה במפה.");
 
       waitForMapClick(state.measureRequestId);
@@ -1492,6 +1751,7 @@
       }
 
       await runNearestSearchFromPoint(point);
+      expandMobileSheet();
     }
 
     async function runNearestSearchFromPoint(point) {
@@ -1570,9 +1830,7 @@
           rawResponse: searchResult.rawResponse
         });
 
-        setStatus(
-          "נמצא המקלט הקרוב וצויר קו אליו. אפשר לפתוח ניווט ב־Google Maps."
-        );
+        setStatus("נמצא המקלט הקרוב וצויר קו אליו. אפשר לפתוח ניווט ב־Google Maps.");
 
         resetGovMapTool();
 
@@ -1825,15 +2083,28 @@
         return searchCache.get(key);
       }
 
-      const result = await queryIntersectFeatures(layerName, center, radius);
-      searchCache.set(key, result);
-
-      if (searchCache.size > 700) {
-        const firstKey = searchCache.keys().next().value;
-        searchCache.delete(firstKey);
+      if (inFlightCache.has(key)) {
+        state.cacheHits += 1;
+        return inFlightCache.get(key);
       }
 
-      return result;
+      const request = queryIntersectFeatures(layerName, center, radius)
+        .then(function (result) {
+          searchCache.set(key, result);
+
+          if (searchCache.size > CACHE_MAX_ITEMS) {
+            const firstKey = searchCache.keys().next().value;
+            searchCache.delete(firstKey);
+          }
+
+          return result;
+        })
+        .finally(function () {
+          inFlightCache.delete(key);
+        });
+
+      inFlightCache.set(key, request);
+      return request;
     }
 
     function buildCacheKey(layerName, center, radius) {
@@ -2470,7 +2741,6 @@
       const params = new URLSearchParams();
       params.set("api", "1");
       params.set("destination", destination);
-      params.set("destination_place_id", "");
       params.set("dir_action", "navigate");
 
       if (mode) {
@@ -2496,7 +2766,11 @@
         return;
       }
 
-      window.open(url, "_blank", "noopener,noreferrer");
+      if (isMobile()) {
+        window.location.href = url;
+      } else {
+        window.open(url, "_blank", "noopener,noreferrer");
+      }
     }
 
     async function copyNavigationLink(mode) {
@@ -2593,13 +2867,13 @@
       setProgress(0, 1);
 
       if (window.govmap && typeof govmap.displayGeometries === "function") {
-        govmap.displayGeometries({
+        toPromise(govmap.displayGeometries({
           wkts: [],
           names: [],
           geometryType: govmap.geometryType.POLYLINE,
           clearExisting: true,
           data: {}
-        }).catch(function () {});
+        })).catch(function () {});
       }
 
       setStatus("התוצאה נוקתה.");
@@ -2834,11 +3108,12 @@
       govmap.zoomToXY({
         x: candidate.x,
         y: candidate.y,
-        level: 9,
+        level: isMobile() ? 10 : 9,
         marker: true
       });
 
       setStatus("זום אל: " + candidate.name);
+      collapseMobileSheet();
     }
 
     function changeBackground() {
@@ -2876,23 +3151,12 @@
       });
 
       setStatus("בוצע מעבר לנקודה.");
-    }
-
-    function quickIsrael() {
-      if (!requireReady()) return;
-
-      govmap.zoomToXY({
-        x: 176000,
-        y: 657000,
-        level: 3,
-        marker: false
-      });
-
-      setStatus("תצוגת כל ישראל.");
+      collapseMobileSheet();
     }
 
     function clearSearchCache() {
       searchCache.clear();
+      inFlightCache.clear();
       state.cacheHits = 0;
       updateDashboard();
       setStatus("ה־Cache נוקה.");
@@ -2956,12 +3220,18 @@
 
     function escapeHtml(value) {
       return String(value ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
     }
+
+    window.addEventListener("resize", function () {
+      if (!isMobile()) {
+        document.body.classList.remove("sheetExpanded", "sheetCompact");
+      }
+    });
   </script>
 </body>
 </html>
